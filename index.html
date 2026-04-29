@@ -2,36 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#EDE9E0"/>
-  <title>Jaki's Companion — ArthurOS</title>
+  <title>Jaki — Caregiver Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    html, body, #root { margin: 0; padding: 0; min-height: 100%; }
-    body {
-      background: #EDE9E0;
-      font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      color: #1F1B16;
-      overflow-x: hidden;
-    }
-    * { box-sizing: border-box; }
-    button { font-family: inherit; }
-    input, textarea { font-family: inherit; }
-    ::-webkit-scrollbar { width: 0; height: 0; }
-
-    @keyframes toastIn  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes sheetUp  { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes pulse    { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-    @keyframes spin     { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-    @keyframes sosIn    { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; font-family: 'Inter Tight', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    body { background: #EDE9E0; color: #1F1B16; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 24px; }
+    h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 42px; font-weight: 500; letter-spacing: -1px; margin-bottom: 8px; }
+    p { font-size: 16px; color: #78716C; margin-bottom: 48px; }
+    .cards { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+    .card { background: #fff; border-radius: 24px; border: 1px solid #E7E3DB; padding: 32px 28px; width: 260px; text-decoration: none; color: inherit; box-shadow: 0 4px 16px rgba(41,37,36,0.06); transition: transform 0.15s, box-shadow 0.15s; display: block; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(41,37,36,0.12); }
+    .card-icon { font-size: 36px; margin-bottom: 16px; }
+    .card-title { font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+    .card-sub { font-size: 13px; color: #78716C; line-height: 1.5; }
+    .badge { display: inline-block; margin-top: 16px; background: #EAF0E4; color: #5E7C52; border-radius: 999px; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .badge.amber { background: #F5EBD6; color: #C89B4A; }
+    footer { margin-top: 48px; font-size: 11px; color: #A8A29E; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
+  <h1>Jaki</h1>
+  <p>Caregiver companion for Arthur — open each app on a separate device.</p>
+  <div class="cards">
+    <a href="jaki.html" class="card">
+      <div class="card-icon">👩‍💼</div>
+      <div class="card-title">Jaki's app</div>
+      <div class="card-sub">Caregiver dashboard with activity feed, routine management, screen-time limits, and safe-zone monitoring.</div>
+      <span class="badge">Caregiver</span>
+    </a>
+    <a href="arthur.html" class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-title">Arthur's phone</div>
+      <div class="card-sub">Simplified companion phone with home grid, contacts, quick-message cards, and today's routine.</div>
+      <span class="badge amber">Arthur</span>
+    </a>
+  </div>
+  <footer>ArthurOS Companion · v1.0 · Hackcessible 2026</footer>
 </body>
 </html>

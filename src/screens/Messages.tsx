@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, Sheet, Empty, Header, useToast } from '../ui.js';
 import type { ScreenProps, MsgCard } from '../types.js';
 
 export function MessagesScreen({ store, setStore, setScreen }: ScreenProps) {
+  const T = useT();
   const toast = useToast();
   const { feed, messages } = store;
   const [tab, setTab] = useState<'inbox' | 'library'>('inbox');
@@ -184,6 +185,7 @@ function CardEditor({ id, text, emoji, onSave, onClose }: {
   onSave: (patch: Pick<MsgCard, 'text' | 'emoji'>) => void;
   onClose: () => void;
 }) {
+  const T = useT();
   const [t, setT] = useState(text ?? '');
   const [e, setE] = useState(emoji ?? '😊');
   const emojiChoices = ['😊','😴','🤒','🍽','🏠','🙏','😄','🤗','😰','😣','🎨','📚','🎮','👋','❤️','💧'];

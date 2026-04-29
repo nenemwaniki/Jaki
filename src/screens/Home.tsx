@@ -1,10 +1,11 @@
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I } from '../ui.js';
 import { Avatar, Card, SectionLabel, Chip } from '../ui.js';
 import type { ScreenProps, FeedItem } from '../types.js';
 
 export function HomeScreen({ store, setStore, setScreen }: ScreenProps) {
-  const { contacts: _c, routine, feed, apps, zones, alerts } = store;
+  const T = useT();
+  const { routine, feed, apps, zones, alerts } = store;
   const activeZone = zones.find(z => z.inside && z.active);
   const current = routine.find(r => r.state === 'current');
   const next = routine.find(r => r.state === 'next');
@@ -194,6 +195,7 @@ type Tone = 'sage' | 'amber' | 'sky' | 'rose';
 function QuickTile({ label, value, sub, tone, icon, onClick }: {
   label: string; value: string; sub: string; tone: Tone; icon: React.ReactNode; onClick: () => void;
 }) {
+  const T = useT();
   const tones: Record<Tone, { bg: string; col: string }> = {
     sage:  { bg: T.sageSoft,  col: T.sageDeep },
     amber: { bg: T.amberSoft, col: T.amber },
@@ -221,6 +223,7 @@ function QuickTile({ label, value, sub, tone, icon, onClick }: {
 }
 
 function FeedRow({ item, last, onClick }: { item: FeedItem; last: boolean; onClick: () => void }) {
+  const T = useT();
   const typeLabels: Record<string, { bg: string; col: string; tag: string }> = {
     aac:      { bg: T.amberSoft, col: T.amber,    tag: 'MESSAGE' },
     routine:  { bg: T.sageSoft,  col: T.sageDeep, tag: 'ROUTINE' },
