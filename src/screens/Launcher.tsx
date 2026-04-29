@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Chip, Card, SectionLabel, Sheet, Empty, useToast, haptic } from '../ui.js';
 import type { ScreenProps } from '../types.js';
 
 export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
+  const T = useT();
   const toast = useToast();
   const { apps, library } = store;
   const [dragging, setDragging] = useState<number | null>(null);

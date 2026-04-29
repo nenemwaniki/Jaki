@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Card, SectionLabel, Header, useToast } from '../ui.js';
 import type { ScreenProps, AppItem } from '../types.js';
 
 export function LimitsScreen({ store, setStore, setScreen }: ScreenProps) {
+  const T = useT();
   const toast = useToast();
   const { apps } = store;
 
@@ -69,6 +70,7 @@ export function LimitsScreen({ store, setStore, setScreen }: ScreenProps) {
 }
 
 function LimitRow({ app, onSet, last }: { app: AppItem; onSet: (m: number | null) => void; last: boolean }) {
+  const T = useT();
   const [open, setOpen] = useState(false);
   const options: (number | null)[] = [null, 15, 30, 45, 60, 90, 120];
 

@@ -1,5 +1,5 @@
 import { useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react';
-import { T, TYPE } from './tokens.js';
+import { useT, TYPE } from './tokens.js';
 import { Icon, I } from './icons.js';
 import type { IconKey } from './icons.js';
 
@@ -24,6 +24,7 @@ export function Avatar({ name, color = '#87A878', size = 44, initials }: {
 export function Card({ children, style, onClick, noPad }: {
   children: ReactNode; style?: CSSProperties; onClick?: () => void; noPad?: boolean;
 }) {
+  const T = useT();
   return (
     <div onClick={onClick} style={{
       background: T.surface, borderRadius: 18, border: `1px solid ${T.line}`,
@@ -38,6 +39,7 @@ export function Card({ children, style, onClick, noPad }: {
 export function SectionLabel({ children, action, style }: {
   children: ReactNode; action?: ReactNode; style?: CSSProperties;
 }) {
+  const T = useT();
   return (
     <div style={{
       display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
@@ -62,13 +64,14 @@ export function Btn({ children, kind = 'primary', size = 'md', icon, onClick, st
   icon?: React.ReactNode; onClick?: () => void;
   style?: CSSProperties; disabled?: boolean; full?: boolean;
 }) {
+  const T = useT();
   const sizes: Record<BtnSize, { pad: string; fs: number; r: number; ic: number }> = {
     sm: { pad: '7px 12px', fs: 13, r: 10, ic: 14 },
     md: { pad: '10px 16px', fs: 14, r: 12, ic: 16 },
     lg: { pad: '14px 20px', fs: 15, r: 14, ic: 18 },
   };
   const kinds: Record<BtnKind, { bg: string; col: string; br: string }> = {
-    primary:     { bg: T.ink,         col: '#fff',  br: T.ink },
+    primary:     { bg: T.ink,         col: T.bg,    br: T.ink },
     sage:        { bg: T.sage,        col: '#fff',  br: T.sage },
     ghost:       { bg: 'transparent', col: T.ink,   br: T.line },
     fill:        { bg: T.surface2,    col: T.ink,   br: T.surface2 },
@@ -103,6 +106,7 @@ export function Btn({ children, kind = 'primary', size = 'md', icon, onClick, st
 
 // ─── Toggle ────────────────────────────────────────────────
 export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  const T = useT();
   return (
     <div
       onClick={() => onChange(!on)}
@@ -124,12 +128,13 @@ export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) =
 }
 
 // ─── Chip ──────────────────────────────────────────────────
-export function Chip({ children, color = T.sage, bg = T.sageSoft, style }: {
+export function Chip({ children, color, bg, style }: {
   children: ReactNode; color?: string; bg?: string; style?: CSSProperties;
 }) {
+  const T = useT();
   return (
     <span style={{
-      background: bg, color, borderRadius: 999,
+      background: bg ?? T.sageSoft, color: color ?? T.sage, borderRadius: 999,
       padding: '4px 10px', fontSize: 11, fontWeight: 600,
       fontFamily: TYPE.sans, letterSpacing: 0.1,
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -140,6 +145,7 @@ export function Chip({ children, color = T.sage, bg = T.sageSoft, style }: {
 
 // ─── Empty state ───────────────────────────────────────────
 export function Empty({ children, title }: { children?: ReactNode; title?: string }) {
+  const T = useT();
   return (
     <div style={{
       padding: '32px 20px', textAlign: 'center',
@@ -181,10 +187,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       }}>
         {toasts.map(t => (
           <div key={t.id} style={{
-            background: T.ink, color: '#F8F7F4',
+            background: '#232320', color: '#F8F7F4',
             borderRadius: 14, padding: '12px 16px',
             fontFamily: TYPE.sans, fontSize: 13, fontWeight: 500,
-            boxShadow: T.shadow3, pointerEvents: 'auto',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)', pointerEvents: 'auto',
             display: 'flex', alignItems: 'center', gap: 12,
             minWidth: 220, maxWidth: 340,
             animation: 'toastIn 0.22s ease-out',
@@ -194,7 +200,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <button
                 onClick={() => { t.action!.onClick(); dismiss(t.id); }}
                 style={{
-                  background: 'transparent', border: 'none', color: T.sage,
+                  background: 'transparent', border: 'none', color: '#87A878',
                   fontFamily: TYPE.sans, fontSize: 13, fontWeight: 700,
                   cursor: 'pointer', padding: 0, letterSpacing: 0.1,
                 }}
@@ -211,7 +217,7 @@ export const useToast = () => useContext(ToastCtx);
 
 // ─── Phone chrome ──────────────────────────────────────────
 export function PhoneStatusBar({ time = '9:41', dark = false }: { time?: string; dark?: boolean }) {
-  const col = dark ? '#fff' : T.ink;
+  const col = dark ? '#fff' : '#1F1B16';
   return (
     <div style={{
       height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -248,6 +254,7 @@ export function PhoneHomeIndicator({ dark = false }: { dark?: boolean }) {
 
 // ─── Bottom sheet ──────────────────────────────────────────
 export function Sheet({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  const T = useT();
   return (
     <>
       <div
@@ -295,6 +302,7 @@ export function Sheet({ title, children, onClose }: { title: string; children: R
 export function Header({ title, sub, onBack, action }: {
   title: string; sub?: string; onBack?: () => void; action?: ReactNode;
 }) {
+  const T = useT();
   return (
     <div style={{ padding: '4px 20px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

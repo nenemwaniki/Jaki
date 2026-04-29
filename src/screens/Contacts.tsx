@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Avatar, Btn, Card, SectionLabel, Sheet, Header, useToast } from '../ui.js';
 import type { ScreenProps, Contact } from '../types.js';
 
 export function ContactsScreen({ store, setStore, setScreen }: ScreenProps) {
+  const T = useT();
   const toast = useToast();
   const { contacts } = store;
   const [editing, setEditing] = useState<Partial<Contact> | null>(null);
@@ -105,11 +106,20 @@ function ContactEditor({ initial, onSave, onDelete, onClose }: {
   onDelete?: () => void;
   onClose: () => void;
 }) {
+  const T = useT();
   const [n, setN] = useState(initial.name ?? '');
   const [r, setR] = useState(initial.role ?? '');
   const [p, setP] = useState(initial.phone ?? '');
   const [c, setC] = useState(initial.color ?? '#87A878');
+  const [error, setError] = useState('');
   const palette = ['#87A878', '#C89B4A', '#6F8FA8', '#8A6E8C', '#B86B5E', '#5E7C52'];
+
+  const handleSave = () => {
+    if (!n.trim()) { setError('Name is required.'); return; }
+    if (!r.trim()) { setError('Role is required.'); return; }
+    setError('');
+    onSave({ name: n.trim(), role: r.trim(), phone: p, color: c, initials: n[0]?.toUpperCase() ?? '?' });
+  };
 
   return (
     <Sheet title={initial.id ? 'Edit contact' : 'Add contact'} onClose={onClose}>
@@ -129,29 +139,32 @@ function ContactEditor({ initial, onSave, onDelete, onClose }: {
         </div>
       </div>
       {[
-        { k: 'Name', v: n, s: setN, ph: 'Jaki' },
-        { k: 'Role', v: r, s: setR, ph: 'Primary caregiver' },
-        { k: 'Phone number', v: p, s: setP, ph: '+254 712 000 000' },
+        { k: 'Name', v: n, s: setN, ph: 'Jaki', req: true },
+        { k: 'Role', v: r, s: setR, ph: 'Primary caregiver', req: true },
+        { k: 'Phone number', v: p, s: setP, ph: '+254 712 000 000', req: false },
       ].map(f => (
         <div key={f.k} style={{ marginBottom: 12 }}>
-          <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>{f.k}</label>
+          <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+            {f.k}{f.req && <span style={{ color: T.rose, marginLeft: 3 }}>*</span>}
+          </label>
           <input
-            value={f.v} onChange={e => f.s(e.target.value)} placeholder={f.ph}
+            value={f.v} onChange={e => { f.s(e.target.value); setError(''); }} placeholder={f.ph}
             style={{
               width: '100%', padding: '12px 14px', marginTop: 6,
-              border: `1.5px solid ${T.line}`, borderRadius: 12,
+              border: `1.5px solid ${error && f.req && !f.v.trim() ? T.rose : T.line}`, borderRadius: 12,
               fontSize: 15, fontFamily: TYPE.sans, color: T.ink, background: T.bg, outline: 'none', boxSizing: 'border-box',
             }}
           />
         </div>
       ))}
+      {error && (
+        <div style={{ fontFamily: TYPE.sans, fontSize: 12, color: T.rose, fontWeight: 500, marginBottom: 8, marginTop: -4 }}>
+          {error}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         {onDelete && <Btn kind="dangerGhost" icon={I.trash} onClick={onDelete}>Delete</Btn>}
-        <Btn
-          kind="primary" full
-          onClick={() => onSave({ name: n, role: r, phone: p, color: c, initials: n[0]?.toUpperCase() ?? '?' })}
-          disabled={!n.trim()}
-        >
+        <Btn kind="primary" full onClick={handleSave}>
           {initial.id ? 'Save changes' : "Add to Arthur's contacts"}
         </Btn>
       </div>

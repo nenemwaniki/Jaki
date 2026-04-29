@@ -1,8 +1,9 @@
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, SectionLabel, Toggle, Header, useToast } from '../ui.js';
 import type { ScreenProps } from '../types.js';
 
 export function LocationScreen({ store, setStore, setScreen }: ScreenProps) {
+  const T = useT();
   const toast = useToast();
   const { zones } = store;
   const active = zones.find(z => z.inside && z.active);

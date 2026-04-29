@@ -1,15 +1,86 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TYPE } from '../tokens.js';
-import type { Store, MsgCard } from '../types.js';
+import type { Store, MsgCard, FeedItem } from '../types.js';
 
-export function ArthurPhone({ store }: { store: Store }) {
+function formatClock(d: Date) {
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function formatDay(d: Date) {
+  const day = d.toLocaleDateString([], { weekday: 'short' });
+  return `${day} · ☀ 24°C`;
+}
+
+export function ArthurPhone({
+  store,
+  setStore,
+  onSos,
+}: {
+  store: Store;
+  setStore: React.Dispatch<React.SetStateAction<Store>>;
+  onSos?: () => void;
+}) {
   const { apps, contacts, messages, routine } = store;
   const [page, setPage] = useState(0);
   const [sent, setSent] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
+  const sosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sendCard = (id: string) => {
-    setSent(id);
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const sendCard = (card: MsgCard) => {
+    setSent(card.id);
     setTimeout(() => setSent(null), 1400);
+    const item: FeedItem = {
+      id: 'f' + Date.now(),
+      type: 'aac',
+      card: card.text,
+      emoji: card.emoji,
+      to: 'Jaki',
+      at: 'Just now',
+      minutes: 0,
+      read: false,
+    };
+    setStore(s => ({ ...s, feed: [item, ...s.feed] }));
+  };
+
+  const markRoutineDone = (id: string) => {
+    setStore(s => {
+      const items = s.routine.map(r => r.id === id ? { ...r, state: 'done' as const } : r);
+      const doneIdx = items.findIndex(r => r.id === id);
+      const promoted = items.map((r, i) => {
+        if (r.state === 'next' && i > doneIdx && !items.slice(doneIdx + 1, i).some(x => x.state === 'next')) {
+          return { ...r, state: 'current' as const };
+        }
+        return r;
+      });
+      const feedItem: FeedItem = {
+        id: 'f' + Date.now(),
+        type: 'routine',
+        text: `Completed: ${s.routine.find(r => r.id === id)?.title ?? ''}`,
+        emoji: s.routine.find(r => r.id === id)?.emoji ?? '✓',
+        at: 'Just now',
+        minutes: 0,
+        read: false,
+      };
+      return { ...s, routine: promoted, feed: [feedItem, ...s.feed] };
+    });
+  };
+
+  const handleSosDown = () => {
+    sosTimer.current = setTimeout(() => {
+      onSos?.();
+    }, 800);
+  };
+
+  const handleSosUp = () => {
+    if (sosTimer.current) {
+      clearTimeout(sosTimer.current);
+      sosTimer.current = null;
+    }
   };
 
   return (
@@ -28,7 +99,7 @@ export function ArthurPhone({ store }: { store: Store }) {
 
         {/* status bar */}
         <div style={{ padding: '8px 18px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ fontFamily: TYPE.sans, fontSize: 10, color: '#fff', fontWeight: 700 }}>9:41</span>
+          <span style={{ fontFamily: TYPE.sans, fontSize: 10, color: '#fff', fontWeight: 700 }}>{formatClock(now)}</span>
           <span style={{ fontFamily: TYPE.sans, fontSize: 9, color: '#fff', opacity: 0.6 }}>📶 78%</span>
         </div>
 
@@ -43,7 +114,7 @@ export function ArthurPhone({ store }: { store: Store }) {
             <div style={{ width: '25%', padding: '8px 12px', overflow: 'auto' }}>
               <div style={{ textAlign: 'center', padding: '6px 0 10px' }}>
                 <div style={{ fontFamily: TYPE.display, fontSize: 14, color: '#fff', fontWeight: 500 }}>Good morning, Arthur</div>
-                <div style={{ fontFamily: TYPE.sans, fontSize: 9, color: '#87A878', marginTop: 2 }}>Tue · ☀ 24°C</div>
+                <div style={{ fontFamily: TYPE.sans, fontSize: 9, color: '#87A878', marginTop: 2 }}>{formatDay(now)}</div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                 {apps.map(a => (
@@ -90,7 +161,7 @@ export function ArthurPhone({ store }: { store: Store }) {
                   <div style={{ fontFamily: TYPE.sans, fontSize: 8, color: '#888', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>{cat}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                     {cards.map(c => (
-                      <div key={c.id} onClick={() => sendCard(c.id)} style={{
+                      <div key={c.id} onClick={() => sendCard(c)} style={{
                         background: sent === c.id ? '#87A878' : '#1e1e1e',
                         borderRadius: 8, padding: '8px 4px', textAlign: 'center', cursor: 'pointer',
                         transition: 'background 0.2s',
@@ -108,12 +179,18 @@ export function ArthurPhone({ store }: { store: Store }) {
             <div style={{ width: '25%', padding: '8px 12px', overflow: 'auto' }}>
               <div style={{ fontFamily: TYPE.display, fontSize: 13, color: '#fff', fontWeight: 500, marginBottom: 8 }}>Today</div>
               {routine.map(r => (
-                <div key={r.id} style={{
-                  background: r.state === 'current' ? 'rgba(200,155,74,0.15)' : '#1e1e1e',
-                  borderRadius: 9, padding: '7px 8px', display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4,
-                  opacity: r.state === 'done' ? 0.4 : 1,
-                  border: r.state === 'current' ? '1px solid #C89B4A' : '1px solid transparent',
-                }}>
+                <div
+                  key={r.id}
+                  onClick={() => r.state !== 'done' && markRoutineDone(r.id)}
+                  style={{
+                    background: r.state === 'current' ? 'rgba(200,155,74,0.15)' : '#1e1e1e',
+                    borderRadius: 9, padding: '7px 8px', display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4,
+                    opacity: r.state === 'done' ? 0.4 : 1,
+                    border: r.state === 'current' ? '1px solid #C89B4A' : '1px solid transparent',
+                    cursor: r.state !== 'done' ? 'pointer' : 'default',
+                    transition: 'opacity 0.2s',
+                  }}
+                >
                   <div style={{ fontSize: 14 }}>{r.state === 'done' ? '✓' : r.emoji}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: TYPE.sans, fontSize: 10, color: '#fff', fontWeight: 600, textDecoration: r.state === 'done' ? 'line-through' : 'none' }}>{r.title}</div>
@@ -126,7 +203,7 @@ export function ArthurPhone({ store }: { store: Store }) {
         </div>
 
         {/* page dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 5, padding: '6px 0 8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 5, padding: '6px 0 4px', flexShrink: 0 }}>
           {['home', 'contacts', 'messages', 'routine'].map((p, i) => (
             <div key={p} onClick={() => setPage(i)} style={{
               width: page === i ? 16 : 5, height: 5, borderRadius: 3,
@@ -134,6 +211,25 @@ export function ArthurPhone({ store }: { store: Store }) {
               transition: 'all 0.2s',
             }} />
           ))}
+        </div>
+
+        {/* SOS button */}
+        <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 6, flexShrink: 0 }}>
+          <button
+            onMouseDown={handleSosDown}
+            onMouseUp={handleSosUp}
+            onMouseLeave={handleSosUp}
+            onTouchStart={handleSosDown}
+            onTouchEnd={handleSosUp}
+            style={{
+              background: 'rgba(184,107,94,0.18)', border: '1.5px solid rgba(184,107,94,0.5)',
+              borderRadius: 10, padding: '4px 16px', cursor: 'pointer',
+              fontFamily: TYPE.sans, fontSize: 9, fontWeight: 700, color: '#CF8078',
+              letterSpacing: 0.4, textTransform: 'uppercase',
+            }}
+          >
+            Hold for SOS
+          </button>
         </div>
 
         {/* home indicator */}

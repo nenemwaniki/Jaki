@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Avatar, Btn, Card, SectionLabel, Toggle, Header, useToast } from '../ui.js';
 import type { ScreenProps } from '../types.js';
 
 interface SettingsExtra { dark: boolean; setDark: (v: boolean) => void; }
 
-export function SettingsScreen({ store, setStore: _s, setScreen, dark, setDark }: ScreenProps & SettingsExtra) {
+export function SettingsScreen({ store, setScreen, dark, setDark }: ScreenProps & SettingsExtra) {
+  const T = useT();
   const toast = useToast();
   const { alerts } = store;
   const [hapticsOn, setH] = useState(true);
@@ -84,7 +85,7 @@ export function SettingsScreen({ store, setStore: _s, setScreen, dark, setDark }
           </SRow>
         </Card>
         <div style={{ fontFamily: TYPE.sans, fontSize: 10.5, color: T.ink4, textAlign: 'center', marginTop: 16, letterSpacing: 0.1 }}>
-          ArthurOS Companion · v0.4 · Hackcessible 2026
+          ArthurOS Companion · v1.0 · Hackcessible 2026
         </div>
       </div>
     </div>
@@ -92,6 +93,7 @@ export function SettingsScreen({ store, setStore: _s, setScreen, dark, setDark }
 }
 
 function SRow({ label, sub, children, last }: { label: string; sub?: string; children: ReactNode; last?: boolean }) {
+  const T = useT();
   return (
     <div style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: last ? 'none' : `1px solid ${T.line}` }}>
       <div style={{ flex: 1 }}>

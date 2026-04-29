@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { T, TYPE } from './tokens.js';
+import { useT, DarkCtx, TYPE } from './tokens.js';
 import { Icon, I, Avatar, PhoneStatusBar, PhoneHomeIndicator, useToast, haptic } from './ui.js';
 import { SEED } from './data.js';
 import { ArthurPhone } from './components/ArthurPhone.js';
@@ -29,6 +29,16 @@ const SIDE_TABS: ScreenId[] = ['contacts', 'activities', 'limits'];
 interface SosState { at: string; zone: string }
 
 export function App() {
+  const [dark, setDark] = useState(false);
+  return (
+    <DarkCtx.Provider value={dark}>
+      <AppInner dark={dark} setDark={setDark} />
+    </DarkCtx.Provider>
+  );
+}
+
+function AppInner({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => void }) {
+  const T = useT();
   const toast = useToast();
   const [screen, setScreen] = useState<ScreenId>(() => {
     const stored = localStorage.getItem('jaki_screen') as ScreenId | null;
@@ -37,7 +47,6 @@ export function App() {
   const [store, setStore] = useState<Store>(SEED);
   const [twin, setTwin] = useState(true);
   const [sos, setSos] = useState<SosState | null>(null);
-  const [dark, setDark] = useState(false);
 
   useEffect(() => { localStorage.setItem('jaki_screen', screen); }, [screen]);
 
@@ -67,6 +76,7 @@ export function App() {
   return (
     <div style={{
       minHeight: '100vh', padding: '28px 16px',
+      background: dark ? '#0A0A0A' : '#EDE9E0',
       display: 'flex', gap: 48, justifyContent: 'center', alignItems: 'flex-start',
       flexWrap: 'wrap',
     }}>
@@ -104,7 +114,7 @@ export function App() {
 
             {/* Tab bar */}
             <div style={{
-              borderTop: `1px solid ${T.line}`, background: 'rgba(248,247,244,0.95)',
+              borderTop: `1px solid ${T.line}`, background: dark ? 'rgba(28,28,30,0.95)' : 'rgba(248,247,244,0.95)',
               backdropFilter: 'blur(16px)', padding: '6px 4px 4px',
               display: 'flex', justifyContent: 'space-around', flexShrink: 0, zIndex: 9,
             }}>
@@ -173,7 +183,7 @@ export function App() {
               <button key={id} onClick={() => setScreen(id)} title={tab.label} style={{
                 width: 44, height: 44, borderRadius: 12, cursor: 'pointer',
                 background: active ? T.ink : T.surface,
-                color: active ? '#fff' : T.ink2,
+                color: active ? T.bg : T.ink2,
                 border: `1px solid ${active ? T.ink : T.line}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: T.shadow1,
@@ -195,7 +205,7 @@ export function App() {
       </div>
 
       {/* Arthur's phone twin */}
-      {twin && <ArthurPhone store={store} />}
+      {twin && <ArthurPhone store={store} setStore={setStore} onSos={fireSos} />}
 
       {/* Floating controls */}
       <div style={{

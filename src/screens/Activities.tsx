@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { T, TYPE } from '../tokens.js';
+import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, Sheet, Header, useToast } from '../ui.js';
 import type { ScreenProps, RoutineItem } from '../types.js';
 
 export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
+  const T = useT();
   const toast = useToast();
   const { routine } = store;
   const [editing, setEditing] = useState<Partial<RoutineItem> | null>(null);
@@ -108,6 +109,7 @@ function RoutineEditor({ initial, onSave, onDelete, onClose }: {
   onDelete?: () => void;
   onClose: () => void;
 }) {
+  const T = useT();
   const [t, setT] = useState(initial.title ?? '');
   const [n, setN] = useState(initial.note ?? '');
   const [time, setTime] = useState(initial.time ?? '09:00');
