@@ -101,7 +101,7 @@ async function fetchFeed(): Promise<FeedItem[]> {
 }
 
 async function fetchZones(): Promise<Zone[]> {
-  const rows = await fetchTable<any>('locations');
+  const rows = await fetchTable<any>('zones');
   return sortById(
     rows.map((row) => ({
       id: row.id,
@@ -128,7 +128,7 @@ async function fetchAlerts(): Promise<AlertItem[]> {
 }
 
 async function fetchMessages(): Promise<MessagesLibrary> {
-  const rows = await fetchTable<any>('messages');
+  const rows = await fetchTable<any>('aac_cards');
   const grouped: MessagesLibrary = {
     urgent: [],
     daily: [],
@@ -152,28 +152,31 @@ async function fetchMessages(): Promise<MessagesLibrary> {
 }
 
 export async function loadStore(): Promise<Store> {
-  const [contacts, apps, library, routine, feed, messages, zones, alerts] =
-    await Promise.all([
-      fetchContacts(),
-      fetchApps(),
-      fetchLibrary(),
-      fetchRoutine(),
-      fetchFeed(),
-      fetchMessages(),
-      fetchZones(),
-      fetchAlerts(),
-    ]);
+  try {
+    const [contacts, apps, library, routine, feed, messages, zones, alerts] =
+      await Promise.all([
+        fetchContacts(),
+        fetchApps(),
+        fetchLibrary(),
+        fetchRoutine(),
+        fetchFeed(),
+        fetchMessages(),
+        fetchZones(),
+        fetchAlerts(),
+      ]);
 
-  return {
-    contacts,
-    apps,
-    library,
-    routine,
-    feed,
-    messages,
-    zones,
-    alerts,
-  };
+    const isEmpty =
+      contacts.length === 0 &&
+      apps.length === 0 &&
+      routine.length === 0 &&
+      feed.length === 0;
+
+    if (isEmpty) return FALLBACK_SEED;
+
+    return { contacts, apps, library, routine, feed, messages, zones, alerts };
+  } catch {
+    return FALLBACK_SEED;
+  }
 }
 
 /**

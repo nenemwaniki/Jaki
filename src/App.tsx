@@ -105,14 +105,14 @@ function AppInner({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => v
       case 'limits':
         return <LimitsScreen {...screenProps} />;
       case 'settings':
-        return <SettingsScreen {...screenProps} />;
+      return <SettingsScreen {...screenProps} dark={dark} setDark={setDark} />;
     }
   };
 
   return (
     <div>
       {loading ? (
-        <div style={{ padding: 24, color: T.muted }}>Loading demo data from Supabase…</div>
+        <div style={{ padding: 24, color: T.ink3 }}>Loading demo data from Supabase…</div>
       ) : error ? (
         <div style={{ padding: 24, color: '#c0392b' }}>
           Failed to load Supabase data: {error}

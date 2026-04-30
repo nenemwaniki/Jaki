@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">jaki</string>
-    <string name="title_activity_main">jaki</string>
-    <string name="package_name">jaki.demo.com</string>
-    <string name="custom_url_scheme">jaki.demo.com</string>
+    <string name="app_name">Arthur</string>
+    <string name="title_activity_main">Arthur</string>
+    <string name="package_name">arthur.demo.com</string>
+    <string name="custom_url_scheme">arthur.demo.com</string>
 </resources>

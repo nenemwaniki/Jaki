@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 5174",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "apk:jaki": "node scripts/build-apk.mjs jaki",
+    "apk:arthur": "node scripts/build-apk.mjs arthur"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
