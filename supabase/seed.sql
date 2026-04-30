@@ -19,8 +19,8 @@
 -- Replace with the actual UUIDs from auth.users after signup.
 do $$
 declare
-  caregiver_uid uuid := 'REPLACE_WITH_JAKI_AUTH_UUID';
-  patient_uid   uuid := 'REPLACE_WITH_ARTHUR_AUTH_UUID';
+  caregiver_uid uuid := 'a0b51d7c-b67e-4355-bfe3-83a827f15ad6';
+  patient_uid   uuid := 'b62dcc24-a980-4cc3-9396-5d4cfe16b6a9';
 begin
 
 -- =============================================================
