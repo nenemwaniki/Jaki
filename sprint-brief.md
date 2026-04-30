@@ -228,7 +228,7 @@ Run through the demo flow twice:
 Gemini prompts ready to copy-paste (saves ~3k tokens each):
 
 > **Capacitor init boilerplate:**  
-> "Generate a complete `capacitor.config.ts` for a React + Vite app named 'Jaki' with bundle ID `com.hackcessible.jaki`, web dir `dist`, targeting Android API 33. Include the `@capacitor/push-notifications` plugin entry."
+> "Generate a complete `capacitor.config.ts` for a React + Vite app named 'Jaki' with bundle ID `com.hackcessible.jaki`, web dir `dist`, targeting Android API 33."
 
 > **Supabase Realtime hook:**  
 > "Write a React `useEffect` hook that subscribes to Supabase Realtime on a table called `notifications`, filters for `INSERT` events, and calls a callback with the new row payload. Use `@supabase/supabase-js` v2."
