@@ -68,11 +68,11 @@ on conflict (id) do nothing;
 -- =============================================================
 
 insert into library_apps (id, patient_id, name, icon, color, reason) values
-  ('l1000000-0000-0000-0000-000000000001', patient_uid, 'TikTok',    '♪', '#B86B5E', 'Not approved — infinite scroll'),
-  ('l1000000-0000-0000-0000-000000000002', patient_uid, 'Instagram', '◎', '#8A6E8C', 'Not approved — infinite scroll'),
-  ('l1000000-0000-0000-0000-000000000003', patient_uid, 'Settings',  '⚙', '#78716C', 'Caregiver only'),
-  ('l1000000-0000-0000-0000-000000000004', patient_uid, 'Calendar',  '▦', '#6F8FA8', 'Available — tap to add'),
-  ('l1000000-0000-0000-0000-000000000005', patient_uid, 'Weather',   '☀', '#C89B4A', 'Available — tap to add')
+  ('b1000000-0000-0000-0000-000000000001', patient_uid, 'TikTok',    '♪', '#B86B5E', 'Not approved — infinite scroll'),
+  ('b1000000-0000-0000-0000-000000000002', patient_uid, 'Instagram', '◎', '#8A6E8C', 'Not approved — infinite scroll'),
+  ('b1000000-0000-0000-0000-000000000003', patient_uid, 'Settings',  '⚙', '#78716C', 'Caregiver only'),
+  ('b1000000-0000-0000-0000-000000000004', patient_uid, 'Calendar',  '▦', '#6F8FA8', 'Available — tap to add'),
+  ('b1000000-0000-0000-0000-000000000005', patient_uid, 'Weather',   '☀', '#C89B4A', 'Available — tap to add')
 on conflict (id) do nothing;
 
 
