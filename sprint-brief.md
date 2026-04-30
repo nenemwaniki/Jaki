@@ -107,7 +107,7 @@ These are what turn "looks nice" into "this could ship".
 
 **1A. Supabase backend — replace seed data**
 - Install `@supabase/supabase-js`
-- Create a `src/lib/supabase.ts` client using `SUPABASE_URL` + `SUPABASE_ANON_KEY` from `.env.local`
+- Create a `src/lib/supabase.ts` client using `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` from `.env.local`
 - Replace `SEED` in `src/data.ts` with real queries from these four tables: `users`, `events`, `locations`, `notifications`
 - Add loading skeletons (a simple spinner is enough — use the existing `T.line` color)
 - Add error boundaries so a failed fetch shows a message, not a blank screen
