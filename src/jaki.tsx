@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { DarkCtx, useT, TYPE } from './tokens.js';
-import { Icon, I, PhoneStatusBar, PhoneHomeIndicator, useToast, haptic } from './ui.js';
+import { Icon, I, PhoneHomeIndicator, useToast, haptic } from './ui.js';
 import { FALLBACK_SEED, loadStore } from './data.js';
 import { supabase } from './lib/supabase.js';
 import { HomeScreen } from './screens/Home.js';
@@ -51,27 +51,18 @@ function JakiApp() {
 
 function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => void }) {
   const T = useT();
-  useToast();
+  const toast = useToast();
   const [store, setStore] = useState<Store>(loadLocalStore);
   const [screen, setScreen] = useState<ScreenId>('home');
   const [sos, setSos] = useState<SosState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [time, setTime] = useState(() =>
-    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  );
 
   // Keep a ref so the Realtime handler always sees the latest store without re-subscribing
   const storeRef = useRef(store);
+  const feedIdsRef = useRef(new Set(store.feed.map((f) => f.id)));
+  const alertIdsRef = useRef(new Set(store.alerts.map((a) => a.id)));
   useEffect(() => { storeRef.current = store; }, [store]);
-
-  // Live clock
-  useEffect(() => {
-    const id = setInterval(() => {
-      setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    }, 30_000);
-    return () => clearInterval(id);
-  }, []);
 
   // Persist store to localStorage so Arthur tab stays in sync
   useEffect(() => {
@@ -92,11 +83,28 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === STORE_KEY && e.newValue) {
-        try { setStore(JSON.parse(e.newValue)); } catch {}
+        try {
+          const next = JSON.parse(e.newValue) as Store;
+          const nextFeedIds = new Set(next.feed.map((f) => f.id));
+          const nextAlertIds = new Set(next.alerts.map((a) => a.id));
+          const newFeed = next.feed.find((f) => !feedIdsRef.current.has(f.id) && !f.read);
+          const newAlert = next.alerts.find((a) => !alertIdsRef.current.has(a.id));
+          if (newFeed) {
+            toast.show(newFeed.card ? `Arthur: ${newFeed.card}` : (newFeed.text ?? 'New notification'));
+          }
+          if (newAlert) {
+            toast.show(newAlert.detail);
+          }
+          feedIdsRef.current = nextFeedIds;
+          alertIdsRef.current = nextAlertIds;
+          setStore(next);
+        } catch {}
       }
       if (e.key === SOS_KEY && e.newValue) {
         try {
-          setSos(JSON.parse(e.newValue));
+          const nextSos = JSON.parse(e.newValue);
+          setSos(nextSos);
+          toast.show(`SOS from ${nextSos.zone}`);
           localStorage.removeItem(SOS_KEY);
           haptic([100, 50, 100, 50, 200]);
         } catch {}
@@ -133,6 +141,7 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
         };
         setStore(s => {
           if (s.feed.some(f => f.id === item.id)) return s;
+          toast.show(item.card ? `Arthur: ${item.card}` : (item.text ?? 'New notification'));
           return { ...s, feed: [item, ...s.feed] };
         });
         haptic([8, 30, 8]);
@@ -177,8 +186,6 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
 
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', background: T.bg, overflow: 'hidden', position: 'relative' }}>
-      <PhoneStatusBar time={time} dark={dark} />
-
       {/* Scrollable screen content */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative' }}>
         {renderScreen()}

@@ -72,6 +72,8 @@ export interface MessagesLibrary {
 export interface Zone {
   id: string;
   name: string;
+  lat?: number;
+  lng?: number;
   radius: number;
   color: string;
   active: boolean;

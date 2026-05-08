@@ -87,6 +87,7 @@ create table if not exists apps (
   id              uuid primary key default uuid_generate_v4(),
   patient_id      uuid not null references profiles(id) on delete cascade,
   name            text not null,
+  package_name    text,
   icon            text not null,          -- single unicode character
   bg              text not null,          -- hex background colour
   color           text not null,          -- hex icon colour

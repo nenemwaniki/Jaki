@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Chip, Card, SectionLabel, Sheet, Empty, useToast, haptic } from '../ui.js';
-import { saveAppLock } from '../data.js';
-import type { ScreenProps } from '../types.js';
+import { saveAppLock, saveApp, deleteApp } from '../data.js';
+import type { ScreenProps, AppItem } from '../types.js';
+
+const PALETTES = [
+  { bg: '#E8F5E9', color: '#1DB954' },
+  { bg: '#FFEAEA', color: '#E53935' },
+  { bg: '#E3F2FD', color: '#1976D2' },
+  { bg: '#FFF8E1', color: '#F57F17' },
+  { bg: '#F3E5F5', color: '#7B1FA2' },
+  { bg: '#E0F7FA', color: '#00838F' },
+];
 
 export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
   const T = useT();
@@ -11,6 +20,7 @@ export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showAddApp, setShowAddApp] = useState(false);
 
   const update = (id: string, patch: Partial<typeof apps[0]>) =>
     setStore(s => ({ ...s, apps: s.apps.map(a => a.id === id ? { ...a, ...patch } : a) }));
@@ -26,8 +36,15 @@ export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
   const remove = (id: string) => {
     const app = apps.find(a => a.id === id)!;
     setStore(s => ({ ...s, apps: s.apps.filter(a => a.id !== id) }));
+    deleteApp(id).catch(() => {});
     toast.show(`Removed "${app.name}" from Arthur's home grid`, {
-      action: { label: 'UNDO', onClick: () => setStore(s => ({ ...s, apps: [...s.apps, app] })) },
+      action: {
+        label: 'UNDO',
+        onClick: () => {
+          setStore(s => ({ ...s, apps: [...s.apps, app] }));
+          saveApp(app).catch(() => {});
+        },
+      },
     });
     haptic([10]);
   };
@@ -99,7 +116,12 @@ export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
       </div>
 
       {/* Current grid */}
-      <SectionLabel action={<Chip color={T.sageDeep} bg={T.sageSoft}>{apps.length} apps · live</Chip>}>
+      <SectionLabel action={
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Btn kind="ghost" size="sm" icon={I.plus} onClick={() => setShowAddApp(true)}>Add app</Btn>
+          <Chip color={T.sageDeep} bg={T.sageSoft}>{apps.length} apps · live</Chip>
+        </div>
+      }>
         On Arthur's home
       </SectionLabel>
 
@@ -250,6 +272,20 @@ export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
         </Card>
       </div>
 
+      {/* Add app sheet */}
+      {showAddApp && (
+        <AddAppSheet
+          onClose={() => setShowAddApp(false)}
+          onSave={(app) => {
+            setStore(s => ({ ...s, apps: [...s.apps, app] }));
+            saveApp(app).catch(() => {});
+            toast.show(`Added "${app.name}" to Arthur's home`);
+            haptic([8]);
+            setShowAddApp(false);
+          }}
+        />
+      )}
+
       {/* Library sheet */}
       {showLibrary && (
         <Sheet title="App library" onClose={() => setShowLibrary(false)}>
@@ -282,5 +318,103 @@ export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
         </Sheet>
       )}
     </div>
+  );
+}
+
+function AddAppSheet({ onSave, onClose }: { onSave: (app: AppItem) => void; onClose: () => void }) {
+  const T = useT();
+  const [name, setName] = useState('');
+  const [icon, setIcon] = useState('📱');
+  const [pkg, setPkg] = useState('');
+  const [paletteIdx, setPaletteIdx] = useState(0);
+
+  const palette = PALETTES[paletteIdx]!;
+  const canSave = name.trim().length > 0 && pkg.trim().length > 0;
+
+  const save = () => {
+    if (!canSave) return;
+    onSave({
+      id: `app-${Date.now()}`,
+      name: name.trim(),
+      icon: icon.trim() || '📱',
+      pkg: pkg.trim(),
+      bg: palette.bg,
+      color: palette.color,
+      allowed: true,
+      locked: false,
+      limit: null,
+      used: 0,
+    });
+  };
+
+  return (
+    <Sheet title="Add app" onClose={onClose}>
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>App name</label>
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="e.g. Netflix"
+          style={{
+            width: '100%', padding: '11px 14px', marginTop: 6,
+            border: `1.5px solid ${T.line}`, borderRadius: 12, fontSize: 16,
+            fontFamily: TYPE.display, color: T.ink, background: T.bg, outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>Icon (emoji)</label>
+        <input
+          value={icon}
+          onChange={e => setIcon(e.target.value)}
+          placeholder="📱"
+          style={{
+            width: '100%', padding: '11px 14px', marginTop: 6,
+            border: `1.5px solid ${T.line}`, borderRadius: 12, fontSize: 22,
+            fontFamily: TYPE.display, color: T.ink, background: T.bg, outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>Package name</label>
+        <input
+          value={pkg}
+          onChange={e => setPkg(e.target.value)}
+          placeholder="e.g. com.netflix.mediaclient"
+          autoCapitalize="none"
+          autoCorrect="off"
+          style={{
+            width: '100%', padding: '11px 14px', marginTop: 6,
+            border: `1.5px solid ${T.line}`, borderRadius: 12, fontSize: 13,
+            fontFamily: TYPE.sans, color: T.ink, background: T.bg, outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink4, marginTop: 5, lineHeight: 1.4 }}>
+          Find in Play Store URL: …details?id=<strong>com.example.app</strong>
+        </div>
+      </div>
+      <div style={{ marginBottom: 18 }}>
+        <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>Colour</label>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          {PALETTES.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => setPaletteIdx(i)}
+              style={{
+                width: 32, height: 32, borderRadius: 10,
+                background: p.bg, border: `2.5px solid ${i === paletteIdx ? p.color : 'transparent'}`,
+                cursor: 'pointer', padding: 0, flexShrink: 0,
+              }}
+            >
+              <div style={{ width: 12, height: 12, borderRadius: 6, background: p.color, margin: 'auto' }} />
+            </button>
+          ))}
+        </div>
+      </div>
+      <Btn kind="primary" full disabled={!canSave} onClick={save}>Add to Arthur's home</Btn>
+    </Sheet>
   );
 }

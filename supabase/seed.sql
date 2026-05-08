@@ -50,16 +50,16 @@ on conflict (id) do nothing;
 -- APPS  (home grid)
 -- =============================================================
 
-insert into apps (id, patient_id, name, icon, bg, color, allowed, locked, limit_minutes, used_minutes, sort_order) values
-  ('a1000000-0000-0000-0000-000000000001', patient_uid, 'YouTube',  '▶', '#F3E1DC', '#B86B5E', true, false, 90,   47, 1),
-  ('a1000000-0000-0000-0000-000000000002', patient_uid, 'Call',     '☏', '#EAF0E4', '#5E7C52', true, false, null, 12, 2),
-  ('a1000000-0000-0000-0000-000000000003', patient_uid, 'Messages', '✉', '#F5EBD6', '#C89B4A', true, false, null, 8,  3),
-  ('a1000000-0000-0000-0000-000000000004', patient_uid, 'Music',    '♪', '#EDE4EE', '#8A6E8C', true, false, null, 22, 4),
-  ('a1000000-0000-0000-0000-000000000005', patient_uid, 'Camera',   '◎', '#E2EAF0', '#6F8FA8', true, false, null, 5,  5),
-  ('a1000000-0000-0000-0000-000000000006', patient_uid, 'Games',    '◆', '#F3E1DC', '#B86B5E', true, true,  45,   45, 6),
-  ('a1000000-0000-0000-0000-000000000007', patient_uid, 'Draw',     '✦', '#EAF0E4', '#5E7C52', true, false, null, 15, 7),
-  ('a1000000-0000-0000-0000-000000000008', patient_uid, 'Stories',  '❦', '#F5EBD6', '#C89B4A', true, false, null, 18, 8),
-  ('a1000000-0000-0000-0000-000000000009', patient_uid, 'Puzzles',  '◐', '#EDE4EE', '#8A6E8C', true, false, null, 11, 9)
+insert into apps (id, patient_id, name, package_name, icon, bg, color, allowed, locked, limit_minutes, used_minutes, sort_order) values
+  ('a1000000-0000-0000-0000-000000000001', patient_uid, 'YouTube',  'com.google.android.youtube',           '▶', '#F3E1DC', '#B86B5E', true, false, 90,   47, 1),
+  ('a1000000-0000-0000-0000-000000000002', patient_uid, 'Call',     null,                                   '☏', '#EAF0E4', '#5E7C52', true, false, null, 12, 2),
+  ('a1000000-0000-0000-0000-000000000003', patient_uid, 'Messages', null,                                   '✉', '#F5EBD6', '#C89B4A', true, false, null, 8,  3),
+  ('a1000000-0000-0000-0000-000000000004', patient_uid, 'Music',    'com.spotify.music',                    '♪', '#EDE4EE', '#8A6E8C', true, false, null, 22, 4),
+  ('a1000000-0000-0000-0000-000000000005', patient_uid, 'Camera',   '__camera__',                           '◎', '#E2EAF0', '#6F8FA8', true, false, null, 5,  5),
+  ('a1000000-0000-0000-0000-000000000006', patient_uid, 'Games',    'com.android.vending',                  '◆', '#F3E1DC', '#B86B5E', true, true,  45,   45, 6),
+  ('a1000000-0000-0000-0000-000000000007', patient_uid, 'Draw',     'com.google.android.apps.drawings',     '✦', '#EAF0E4', '#5E7C52', true, false, null, 15, 7),
+  ('a1000000-0000-0000-0000-000000000008', patient_uid, 'Stories',  'com.google.android.apps.youtube.kids', '❦', '#F5EBD6', '#C89B4A', true, false, null, 18, 8),
+  ('a1000000-0000-0000-0000-000000000009', patient_uid, 'Puzzles',  'com.microsoft.sudoku',                 '◐', '#EDE4EE', '#8A6E8C', true, false, null, 11, 9)
 on conflict (id) do nothing;
 
 

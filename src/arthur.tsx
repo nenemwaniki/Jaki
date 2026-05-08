@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { TYPE } from './tokens.js';
 import { useToast, haptic, ToastProvider } from './ui.js';
-import { FALLBACK_SEED, loadStore, saveRoutineState, saveFeedItem } from './data.js';
+import { FALLBACK_SEED, loadStore, saveRoutineState, saveFeedItem, sendSosNotification } from './data.js';
 import { supabase } from './lib/supabase.js';
 import type { Store, MsgCard, FeedItem, AppItem, Contact } from './types.js';
 
@@ -46,19 +46,15 @@ function extractPkg(raw: string): string {
   return raw;
 }
 
+
 function launchApp(appId: string, appName?: string, pkg?: string) {
   try {
     const bridge = (window as any).Capacitor?.Plugins?.AppBridge;
-    // Camera — use intent directly
     if (appId === 'camera' || pkg === '__camera__' || appName?.toLowerCase() === 'camera') {
-      bridge?.launchCamera({});
+      bridge?.launchCamera?.({});
       return;
     }
-    // Resolution order: explicit pkg field → id map → name map
-    const raw =
-      pkg ??
-      PKG_BY_ID[appId] ??
-      PKG_BY_NAME[appName?.toLowerCase() ?? ''];
+    const raw = pkg ?? PKG_BY_ID[appId] ?? PKG_BY_NAME[appName?.toLowerCase() ?? ''];
     const packageName = raw ? extractPkg(raw) : undefined;
     if (packageName && bridge) {
       bridge.launchApp({ package: packageName });
@@ -89,11 +85,47 @@ function gridLayout(n: number): { cols: number; rows: number } {
 }
 
 // ─── Apps Page ─────────────────────────────────────────────────────────────
+const HOLD_MS = 700;
+
 function AppsPage({ store, onToast }: { store: Store; onToast: (m: string) => void }) {
   const { apps } = store;
   const count = apps.length || 1;
   const { cols, rows } = gridLayout(count);
   const scrollable = rows > 3;
+  const pressStartRef = useRef<number | null>(null);
+  const pressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pressedId, setPressedId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+
+  const cancelPress = () => {
+    if (pressIntervalRef.current) { clearInterval(pressIntervalRef.current); pressIntervalRef.current = null; }
+    pressStartRef.current = null;
+    setPressedId(null);
+    setProgress(0);
+  };
+
+  const startPress = (app: AppItem) => {
+    if (app.locked) { onToast(`${app.name} is locked`); haptic([6]); return; }
+    cancelPress();
+    pressStartRef.current = Date.now();
+    setPressedId(app.id);
+    setProgress(0);
+    haptic([3]);
+    pressIntervalRef.current = setInterval(() => {
+      if (pressStartRef.current === null) return;
+      const p = Math.min((Date.now() - pressStartRef.current) / HOLD_MS, 1);
+      setProgress(p);
+      if (p >= 1) {
+        clearInterval(pressIntervalRef.current!);
+        pressIntervalRef.current = null;
+        pressStartRef.current = null;
+        setPressedId(null);
+        setProgress(0);
+        launchApp(app.id, app.name, app.pkg);
+        haptic([8]);
+      }
+    }, 30);
+  };
 
   return (
     <div style={{
@@ -106,64 +138,73 @@ function AppsPage({ store, onToast }: { store: Store; onToast: (m: string) => vo
       gap: 12,
       transition: 'grid-template-columns 0.35s ease, grid-template-rows 0.35s ease',
     }}>
-      {apps.map(app => (
-        <button
-          key={app.id}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            if (app.locked) { onToast(`${app.name} is locked`); haptic([6]); return; }
-            launchApp(app.id, app.name, app.pkg);
-            haptic([8]);
-          }}
-          onClick={() => {
-            if (app.locked) { onToast(`${app.name} is locked`); haptic([6]); return; }
-            launchApp(app.id, app.name, app.pkg);
-            haptic([8]);
-          }}
-          style={{
-            background: app.locked ? SURF2 : app.bg,
-            borderRadius: 24,
-            border: 'none',
-            cursor: app.locked ? 'default' : 'pointer',
-            opacity: app.locked ? 0.4 : 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            transition: 'opacity 0.2s, background 0.3s',
-            WebkitTapHighlightColor: 'transparent',
-            touchAction: 'manipulation',
-            gap: 8,
-            padding: 8,
-          }}
-        >
-          <div style={{
-            fontSize: 'clamp(30px, 9vw, 52px)',
-            color: app.color,
-            lineHeight: 1,
-            fontFamily: TYPE.display,
-          }}>
-            {app.icon}
-          </div>
-          <div style={{
-            fontFamily: TYPE.sans,
-            fontSize: 'clamp(11px, 3vw, 15px)',
-            color: app.locked ? MUTED : '#333',
-            fontWeight: 600,
-            letterSpacing: -0.1,
-          }}>{app.name}</div>
-          {app.locked && (
-            <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 14 }}>🔒</div>
-          )}
-          {(app.pkg || PKG_BY_ID[app.id] || PKG_BY_NAME[app.name?.toLowerCase()] || app.name?.toLowerCase() === 'camera') && !app.locked && (
+      {apps.map(app => {
+        const isPressed = pressedId === app.id;
+        return (
+          <button
+            key={app.id}
+            onPointerDown={() => startPress(app)}
+            onPointerUp={cancelPress}
+            onPointerCancel={cancelPress}
+            onPointerLeave={cancelPress}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              background: app.locked ? SURF2 : app.bg,
+              borderRadius: 24,
+              border: 'none',
+              cursor: app.locked ? 'default' : 'pointer',
+              opacity: app.locked ? 0.4 : 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
+              gap: 8,
+              padding: 8,
+            }}
+          >
+            {/* Hold progress fill */}
+            {isPressed && (
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                height: `${progress * 100}%`,
+                background: `${app.color}33`,
+                pointerEvents: 'none',
+                transition: 'none',
+              }} />
+            )}
             <div style={{
-              position: 'absolute', bottom: 10, right: 12,
-              width: 7, height: 7, borderRadius: '50%', background: GREEN,
-            }} />
-          )}
-        </button>
-      ))}
+              fontSize: 'clamp(30px, 9vw, 52px)',
+              color: app.color,
+              lineHeight: 1,
+              fontFamily: TYPE.display,
+              position: 'relative',
+            }}>
+              {app.icon}
+            </div>
+            <div style={{
+              fontFamily: TYPE.sans,
+              fontSize: 'clamp(11px, 3vw, 15px)',
+              color: app.locked ? MUTED : '#333',
+              fontWeight: 600,
+              letterSpacing: -0.1,
+              position: 'relative',
+            }}>{app.name}</div>
+            {app.locked && (
+              <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 14 }}>🔒</div>
+            )}
+            {(app.pkg || PKG_BY_ID[app.id] || PKG_BY_NAME[app.name?.toLowerCase()] || app.name?.toLowerCase() === 'camera') && !app.locked && (
+              <div style={{
+                position: 'absolute', bottom: 10, right: 12,
+                width: 7, height: 7, borderRadius: '50%', background: GREEN,
+              }} />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -399,22 +440,22 @@ function AACPage({ store, onSend }: { store: Store; onSend: (c: MsgCard) => void
 }
 
 // ─── Routine Page ───────────────────────────────────────────────────────────
-function RoutinePage({ store, onDone }: { store: Store; onDone: (id: string) => void }) {
+function RoutinePage({ store, onToggle }: { store: Store; onToggle: (id: string) => void }) {
   return (
     <div style={{ width: '100%', height: '100%', overflowY: 'auto', padding: '12px 14px 8px' }}>
       {store.routine.map(r => (
         <div
           key={r.id}
-          onClick={() => r.state !== 'done' && onDone(r.id)}
+          onClick={() => onToggle(r.id)}
           style={{
             background: r.state === 'current' ? 'rgba(200,155,74,0.12)' : SURFACE,
             borderRadius: 16,
             padding: '16px',
             display: 'flex', alignItems: 'center', gap: 14,
             marginBottom: 10,
-            opacity: r.state === 'done' ? 0.38 : 1,
+            opacity: r.state === 'done' ? 0.5 : 1,
             border: `1.5px solid ${r.state === 'current' ? AMBER : 'transparent'}`,
-            cursor: r.state !== 'done' ? 'pointer' : 'default',
+            cursor: 'pointer',
             transition: 'opacity 0.2s',
             WebkitTapHighlightColor: 'transparent',
           }}
@@ -431,6 +472,11 @@ function RoutinePage({ store, onDone }: { store: Store; onDone: (id: string) => 
             {r.note && (
               <div style={{ fontFamily: TYPE.sans, fontSize: 12, color: MUTED, marginTop: 2 }}>
                 {r.note}
+              </div>
+            )}
+            {r.state === 'done' && (
+              <div style={{ fontFamily: TYPE.sans, fontSize: 11, color: GREEN, marginTop: 2 }}>
+                Tap to undo
               </div>
             )}
           </div>
@@ -668,22 +714,30 @@ export function ArthurApp() {
     toast.show(`Sent: ${card.text}`);
   };
 
-  const markDone = (id: string) => {
-    setStore(s => ({
-      ...s,
-      routine: s.routine.map(r => r.id === id ? { ...r, state: 'done' as const } : r),
-    }));
-    haptic([8]);
-    saveRoutineState(id, 'done').catch(() => {});
+  const toggleRoutine = (id: string) => {
+    setStore(s => {
+      const item = s.routine.find(r => r.id === id);
+      if (!item) return s;
+      const next = item.state === 'done' ? 'next' as const : 'done' as const;
+      saveRoutineState(id, next).catch(() => {});
+      haptic([8]);
+      return { ...s, routine: s.routine.map(r => r.id === id ? { ...r, state: next } : r) };
+    });
   };
 
   const handleSosDown = () => {
+    if (sosTimer.current) return;
     sosTimer.current = setTimeout(() => {
+      sosTimer.current = null;
       const zone = storeRef.current.zones.find(z => z.inside)?.name ?? 'Home';
-      localStorage.setItem(SOS_KEY, JSON.stringify({
-        at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        zone,
-      }));
+      const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const detail = `SOS triggered from ${zone}`;
+      const alert = { id: `sos-${Date.now()}`, kind: 'sos' as const, at, resolved: false, detail };
+      setStore(s => ({ ...s, alerts: [alert, ...s.alerts] }));
+      // Cross-tab (same-browser) fallback
+      localStorage.setItem(SOS_KEY, JSON.stringify({ at, zone }));
+      // Supabase Realtime — works across separate devices/APKs
+      sendSosNotification(detail, at).catch(() => {});
       haptic([100, 50, 100, 50, 200]);
       toast.show('SOS sent to Jaki');
     }, 800);
@@ -697,7 +751,7 @@ export function ArthurApp() {
     <AppsPage store={store} onToast={m => toast.show(m)} />,
     <CallPage contacts={store.contacts} />,
     <AACPage store={store} onSend={sendCard} />,
-    <RoutinePage store={store} onDone={markDone} />,
+    <RoutinePage store={store} onToggle={toggleRoutine} />,
   ];
 
   return (
@@ -779,8 +833,10 @@ export function ArthurApp() {
 
         {/* SOS — calm, not loud */}
         <button
-          onMouseDown={handleSosDown} onMouseUp={handleSosUp} onMouseLeave={handleSosUp}
-          onTouchStart={handleSosDown} onTouchEnd={handleSosUp}
+          onPointerDown={handleSosDown}
+          onPointerUp={handleSosUp}
+          onPointerCancel={handleSosUp}
+          onPointerLeave={handleSosUp}
           style={{
             flex: 1,
             background: `rgba(207,128,120,0.09)`,

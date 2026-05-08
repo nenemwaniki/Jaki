@@ -112,6 +112,8 @@ async function fetchZones(): Promise<Zone[]> {
     rows.map((row) => ({
       id: row.id,
       name: row.name,
+      lat: row.lat ?? undefined,
+      lng: row.lng ?? undefined,
       radius: Number(row.radius ?? 0),
       color: row.color,
       active: Boolean(row.active),
@@ -195,6 +197,51 @@ export async function saveAppLimit(appId: string, limitMinutes: number | null): 
   await supabase.from('apps').update({ limit_minutes: limitMinutes }).eq('id', appId);
 }
 
+export async function saveApp(app: AppItem): Promise<void> {
+  await supabase.from('apps').upsert({
+    id: app.id,
+    name: app.name,
+    icon: app.icon,
+    bg: app.bg,
+    color: app.color,
+    allowed: app.allowed,
+    locked: app.locked,
+    limit_minutes: app.limit ?? null,
+    used_minutes: app.used,
+    pkg: app.pkg ?? null,
+  });
+}
+
+export async function deleteApp(id: string): Promise<void> {
+  await supabase.from('apps').delete().eq('id', id);
+}
+
+export async function saveZone(zone: Zone): Promise<void> {
+  await supabase.from('zones').upsert({
+    id: zone.id,
+    name: zone.name,
+    lat: zone.lat ?? null,
+    lng: zone.lng ?? null,
+    radius: zone.radius,
+    color: zone.color,
+    active: zone.active,
+    inside: zone.inside,
+  });
+}
+
+export async function deleteZone(id: string): Promise<void> {
+  await supabase.from('zones').delete().eq('id', id);
+}
+
+export async function sendSosNotification(detail: string, at: string): Promise<void> {
+  await supabase.from('notifications').insert({
+    kind: 'sos',
+    at,
+    resolved: false,
+    detail,
+  });
+}
+
 export async function saveRoutineState(id: string, state: string): Promise<void> {
   await supabase.from('routine_items').update({ state }).eq('id', id);
 }
@@ -265,7 +312,7 @@ export const FALLBACK_SEED: Store = {
     ],
   },
   zones: [
-    { id: 'z1', name: 'Home', radius: 120, color: '#87A878', active: true, inside: true },
+    { id: 'z1', name: 'Home', lat: -1.286389, lng: 36.817223, radius: 120, color: '#87A878', active: true, inside: true },
   ],
   alerts: [],
 };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, Sheet, Header, useToast } from '../ui.js';
 import type { ScreenProps, RoutineItem } from '../types.js';
+import { saveRoutineState } from '../data.js';
 
 export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
   const T = useT();
@@ -32,6 +33,17 @@ export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
     setEditing(null);
   };
 
+  const cycleState = (item: RoutineItem) => {
+    const nextState: RoutineItem['state'] =
+      item.state === 'done' ? 'next' : 'done';
+    setStore(s => ({
+      ...s,
+      routine: s.routine.map(r => r.id === item.id ? { ...r, state: nextState } : r),
+    }));
+    saveRoutineState(item.id, nextState).catch(() => {});
+    toast.show(nextState === 'done' ? `Completed "${item.title}"` : `Reset "${item.title}" to undone`);
+  };
+
   const groups = [
     { key: 'done' as const,    label: 'Completed' },
     { key: 'current' as const, label: 'Happening now' },
@@ -58,23 +70,25 @@ export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
               </div>
               <Card noPad>
                 {items.map((r, i) => (
-                  <div key={r.id} onClick={() => setEditing(r)} style={{
+                  <div key={r.id} style={{
                     padding: '14px 14px', display: 'flex', alignItems: 'center', gap: 12,
                     borderBottom: i === items.length - 1 ? 'none' : `1px solid ${T.line}`,
-                    cursor: 'pointer',
                     background: r.state === 'current' ? `${T.amberSoft}70` : 'transparent',
                     opacity: r.state === 'done' ? 0.55 : 1,
                   }}>
-                    <div style={{
+                    <button
+                      onClick={() => cycleState(r)}
+                      style={{
                       width: 44, height: 44, borderRadius: 12,
                       background: r.state === 'current' ? T.amber : T.surface2,
                       color: r.state === 'current' ? '#fff' : T.ink3,
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
+                      border: 'none', cursor: 'pointer',
                     }}>
                       {r.state === 'done'
                         ? <Icon path={I.check} size={18} stroke={T.sageDeep} sw={2.5} />
                         : r.emoji}
-                    </div>
+                    </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
                         fontFamily: TYPE.display, fontSize: 15, color: T.ink, fontWeight: 500, letterSpacing: -0.2,
@@ -83,6 +97,18 @@ export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
                       <div style={{ fontFamily: TYPE.sans, fontSize: 11.5, color: T.ink3, marginTop: 1 }}>{r.note}</div>
                     </div>
                     <div style={{ fontFamily: TYPE.display, fontSize: 14, color: T.ink2, fontWeight: 500 }}>{r.time}</div>
+                    <button
+                      onClick={() => setEditing(r)}
+                      style={{
+                        width: 34, height: 34, borderRadius: 10, cursor: 'pointer',
+                        background: 'transparent', color: T.ink4,
+                        border: `1px solid ${T.line}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon path={I.edit} size={14} sw={2} />
+                    </button>
                   </div>
                 ))}
               </Card>
@@ -114,6 +140,7 @@ function RoutineEditor({ initial, onSave, onDelete, onClose }: {
   const [n, setN] = useState(initial.note ?? '');
   const [time, setTime] = useState(initial.time ?? '09:00');
   const [em, setEm] = useState(initial.emoji ?? '📌');
+  const [state, setState] = useState<RoutineItem['state']>(initial.state ?? 'next');
   const emojis = ['🌅','🥣','🎨','🚶','🍽','📺','🧩','🌙','📚','💊','🛁','🎮'];
 
   return (
@@ -142,6 +169,35 @@ function RoutineEditor({ initial, onSave, onDelete, onClose }: {
         </div>
       </div>
       <div style={{ marginBottom: 18 }}>
+        <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>Status</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
+          {[
+            { id: 'next', label: 'Undone' },
+            { id: 'current', label: 'Current' },
+            { id: 'done', label: 'Done' },
+          ].map((option) => (
+            <button
+              key={option.id}
+              onClick={() => setState(option.id as RoutineItem['state'])}
+              style={{
+                padding: '11px 8px',
+                borderRadius: 10,
+                cursor: 'pointer',
+                background: state === option.id ? T.sage : T.surface2,
+                color: state === option.id ? '#fff' : T.ink2,
+                border: state === option.id ? 'none' : `1px solid ${T.line}`,
+                fontFamily: TYPE.sans,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: 0.1,
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginBottom: 18 }}>
         <label style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>Symbol</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginTop: 8 }}>
           {emojis.map(e => (
@@ -155,7 +211,7 @@ function RoutineEditor({ initial, onSave, onDelete, onClose }: {
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         {onDelete && <Btn kind="dangerGhost" icon={I.trash} onClick={onDelete}>Delete</Btn>}
-        <Btn kind="primary" full disabled={!t.trim()} onClick={() => onSave({ title: t, note: n, time, emoji: em })}>Save</Btn>
+        <Btn kind="primary" full disabled={!t.trim()} onClick={() => onSave({ title: t, note: n, time, emoji: em, state })}>Save</Btn>
       </div>
     </Sheet>
   );
