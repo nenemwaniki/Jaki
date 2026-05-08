@@ -37,6 +37,14 @@
         </provider>
     </application>
 
+    <!-- Package visibility (Android 11+): allow querying installed launcher apps -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
