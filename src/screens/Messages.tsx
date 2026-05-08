@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, Sheet, Empty, Header, useToast } from '../ui.js';
 import type { ScreenProps, MsgCard } from '../types.js';
+import { saveAacCard, deleteAacCard } from '../data.js';
 
 export function MessagesScreen({ store, setStore, setScreen }: ScreenProps) {
   const T = useT();
@@ -24,9 +25,14 @@ export function MessagesScreen({ store, setStore, setScreen }: ScreenProps) {
     setStore(s => {
       const cat = s.messages[category as keyof typeof s.messages] ?? [];
       if (id) {
-        return { ...s, messages: { ...s.messages, [category]: cat.map(c => c.id === id ? { ...c, ...patch } : c) } };
+        const updated = cat.map(c => c.id === id ? { ...c, ...patch } : c);
+        const card = updated.find(c => c.id === id)!;
+        saveAacCard(category, card).catch(() => {});
+        return { ...s, messages: { ...s.messages, [category]: updated } };
       }
-      return { ...s, messages: { ...s.messages, [category]: [...cat, { id: 'm' + Date.now(), text: '', emoji: '😊', ...patch }] } };
+      const newCard: MsgCard = { id: crypto.randomUUID(), text: '', emoji: '😊', ...patch };
+      saveAacCard(category, newCard).catch(() => {});
+      return { ...s, messages: { ...s.messages, [category]: [...cat, newCard] } };
     });
     toast.show(id ? 'Card updated' : "Card added to Arthur's library");
   };
@@ -39,13 +45,17 @@ export function MessagesScreen({ store, setStore, setScreen }: ScreenProps) {
       ...s,
       messages: { ...s.messages, [category]: (s.messages[category as keyof typeof s.messages] ?? []).filter(c => c.id !== id) },
     }));
+    deleteAacCard(id).catch(() => {});
     toast.show(`Removed "${card.text}"`, {
       action: {
         label: 'UNDO',
-        onClick: () => setStore(s => ({
-          ...s,
-          messages: { ...s.messages, [category]: [...(s.messages[category as keyof typeof s.messages] ?? []), card] },
-        })),
+        onClick: () => {
+          setStore(s => ({
+            ...s,
+            messages: { ...s.messages, [category]: [...(s.messages[category as keyof typeof s.messages] ?? []), card] },
+          }));
+          saveAacCard(category, card).catch(() => {});
+        },
       },
     });
   };

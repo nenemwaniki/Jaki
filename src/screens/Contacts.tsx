@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Avatar, Btn, Card, SectionLabel, Sheet, Header, useToast } from '../ui.js';
 import type { ScreenProps, Contact } from '../types.js';
+import { saveContact, deleteContact } from '../data.js';
 
 export function ContactsScreen({ store, setStore, setScreen }: ScreenProps) {
   const T = useT();
@@ -14,15 +15,16 @@ export function ContactsScreen({ store, setStore, setScreen }: ScreenProps) {
 
   const save = (patch: Partial<Contact>) => {
     if (editing?.id) {
-      setStore(s => ({ ...s, contacts: s.contacts.map(c => c.id === editing.id ? { ...c, ...patch } : c) }));
+      const updated = { ...contacts.find(c => c.id === editing.id)!, ...patch };
+      setStore(s => ({ ...s, contacts: s.contacts.map(c => c.id === editing.id ? updated : c) }));
+      saveContact(updated).catch(() => {});
       toast.show(`Updated ${patch.name ?? ''}`);
     } else {
       const name = patch.name ?? '';
-      setStore(s => ({
-        ...s,
-        contacts: [...s.contacts, { id: 'c' + Date.now(), star: false, phone: '', role: '', color: '#87A878', initials: name[0]?.toUpperCase() ?? '?', ...patch, name } as Contact],
-      }));
-      toast.show(`${patch.name ?? ''} added to Arthur's contacts`);
+      const newContact: Contact = { id: crypto.randomUUID(), star: false, phone: '', role: '', color: '#87A878', initials: name[0]?.toUpperCase() ?? '?', ...patch, name };
+      setStore(s => ({ ...s, contacts: [...s.contacts, newContact] }));
+      saveContact(newContact).catch(() => {});
+      toast.show(`${name} added to Arthur's contacts`);
     }
     setEditing(null);
   };
@@ -30,14 +32,27 @@ export function ContactsScreen({ store, setStore, setScreen }: ScreenProps) {
   const remove = (id: string) => {
     const c = contacts.find(x => x.id === id)!;
     setStore(s => ({ ...s, contacts: s.contacts.filter(x => x.id !== id) }));
+    deleteContact(id).catch(() => {});
     toast.show(`Removed ${c.name}`, {
-      action: { label: 'UNDO', onClick: () => setStore(s => ({ ...s, contacts: [...s.contacts, c] })) },
+      action: {
+        label: 'UNDO',
+        onClick: () => {
+          setStore(s => ({ ...s, contacts: [...s.contacts, c] }));
+          saveContact(c).catch(() => {});
+        },
+      },
     });
     setEditing(null);
   };
 
-  const toggleStar = (id: string) =>
-    setStore(s => ({ ...s, contacts: s.contacts.map(c => c.id === id ? { ...c, star: !c.star } : c) }));
+  const toggleStar = (id: string) => {
+    setStore(s => {
+      const updated = s.contacts.map(c => c.id === id ? { ...c, star: !c.star } : c);
+      const contact = updated.find(c => c.id === id);
+      if (contact) saveContact(contact).catch(() => {});
+      return { ...s, contacts: updated };
+    });
+  };
 
   return (
     <div style={{ background: T.bg, minHeight: '100%' }}>

@@ -665,6 +665,27 @@ export function ArthurApp() {
           })),
         }));
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, async () => {
+        const { data } = await supabase.from('contacts').select('*');
+        if (!data) return;
+        const contacts: Contact[] = data.map((r: any) => ({
+          id: r.id, name: r.name, role: r.role, color: r.color,
+          initials: r.initials, star: Boolean(r.star), phone: r.phone ?? '',
+        }));
+        setStore(s => ({ ...s, contacts }));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aac_cards' }, async () => {
+        const { data } = await supabase.from('aac_cards').select('*').eq('patient_id', 'b62dcc24-a980-4cc3-9396-5d4cfe16b6a9');
+        if (!data) return;
+        const grouped: Store['messages'] = { urgent: [], daily: [], social: [] };
+        for (const row of data) {
+          const cat = row.category as keyof Store['messages'];
+          if (cat && grouped[cat]) {
+            grouped[cat].push({ id: row.id, text: row.text, emoji: row.emoji, imageUrl: row.image_url ?? undefined });
+          }
+        }
+        setStore(s => ({ ...s, messages: grouped }));
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);

@@ -216,7 +216,6 @@ export async function saveApp(app: AppItem): Promise<void> {
 export async function saveRoutineItem(item: RoutineItem): Promise<void> {
   await supabase.from('routine_items').upsert({
     id: item.id,
-    patient_id: PATIENT_ID,
     emoji: item.emoji,
     title: item.title,
     note: item.note ?? '',
@@ -262,6 +261,37 @@ export async function sendSosNotification(detail: string, at: string): Promise<v
 
 export async function saveRoutineState(id: string, state: string): Promise<void> {
   await supabase.from('routine_items').update({ state }).eq('id', id);
+}
+
+export async function saveContact(contact: Contact): Promise<void> {
+  await supabase.from('contacts').upsert({
+    id: contact.id,
+    name: contact.name,
+    role: contact.role,
+    color: contact.color,
+    initials: contact.initials,
+    star: contact.star,
+    phone: contact.phone ?? '',
+  });
+}
+
+export async function deleteContact(id: string): Promise<void> {
+  await supabase.from('contacts').delete().eq('id', id);
+}
+
+export async function saveAacCard(category: string, card: MsgCard): Promise<void> {
+  await supabase.from('aac_cards').upsert({
+    id: card.id,
+    patient_id: PATIENT_ID,
+    text: card.text,
+    emoji: card.emoji,
+    category,
+    image_url: card.imageUrl ?? null,
+  });
+}
+
+export async function deleteAacCard(id: string): Promise<void> {
+  await supabase.from('aac_cards').delete().eq('id', id);
 }
 
 export async function saveFeedItem(item: FeedItem): Promise<void> {

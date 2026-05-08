@@ -16,6 +16,13 @@ import type { ScreenId, Store } from './types.js';
 const STORE_KEY = 'jaki_store';
 const SOS_KEY = 'jaki_sos';
 
+function showBannerNotification(title: string, body: string) {
+  try {
+    const bridge = (window as any).Capacitor?.Plugins?.AppBridge;
+    bridge?.showNotification?.({ title, body });
+  } catch {}
+}
+
 const TABS = [
   { id: 'home' as ScreenId, label: 'Home', icon: I.home },
   { id: 'launcher' as ScreenId, label: 'Apps', icon: I.grid },
@@ -123,7 +130,9 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
         const row = payload.new as any;
         const zone = row.detail?.replace('SOS triggered from ', '') ?? storeRef.current.zones.find((z) => z.inside)?.name ?? 'Home';
-        setSos({ at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), zone });
+        const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setSos({ at, zone });
+        showBannerNotification('SOS Alert', `Arthur needs help! (${zone})`);
         haptic([100, 50, 100, 50, 200]);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_items' }, (payload) => {
@@ -136,7 +145,9 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
         };
         setStore(s => {
           if (s.feed.some(f => f.id === item.id)) return s;
-          toast.show(item.card ? `Arthur: ${item.card}` : (item.text ?? 'New notification'));
+          const msg = item.card ? `Arthur: ${item.card}` : (item.text ?? 'New notification');
+          toast.show(msg);
+          showBannerNotification('New message from Arthur', item.card ?? item.text ?? 'Tap to view');
           return { ...s, feed: [item, ...s.feed] };
         });
         haptic([8, 30, 8]);

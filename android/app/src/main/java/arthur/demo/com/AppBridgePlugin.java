@@ -1,9 +1,16 @@
 package arthur.demo.com;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.MediaStore;
+import android.provider.Settings;
+import androidx.core.app.NotificationCompat;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -23,6 +30,7 @@ public class AppBridgePlugin extends Plugin {
             try {
                 Intent store = new Intent(Intent.ACTION_VIEW,
                     Uri.parse("market://details?id=" + pkg));
+                store.setPackage("com.android.vending");
                 store.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getContext().startActivity(store);
             } catch (Exception e) {
@@ -34,16 +42,15 @@ public class AppBridgePlugin extends Plugin {
             call.resolve();
             return;
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         call.resolve();
     }
 
     @PluginMethod
     public void launchCamera(PluginCall call) {
-        // Use the standard capture intent — works on all manufacturers
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PackageManager pm = getContext().getPackageManager();
         if (intent.resolveActivity(pm) != null) {
             getContext().startActivity(intent);
@@ -51,6 +58,33 @@ public class AppBridgePlugin extends Plugin {
         } else {
             call.reject("No camera app found");
         }
+    }
+
+    @PluginMethod
+    public void showNotification(PluginCall call) {
+        String title = call.getString("title", "Jaki");
+        String body = call.getString("body", "");
+        String channelId = "jaki_alerts";
+
+        NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) { call.resolve(); return; }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel ch = new NotificationChannel(channelId, "Jaki Alerts", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Alerts from Arthur");
+            nm.createNotificationChannel(ch);
+        }
+
+        Notification notification = new NotificationCompat.Builder(getContext(), channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build();
+
+        nm.notify((int) (System.currentTimeMillis() % Integer.MAX_VALUE), notification);
+        call.resolve();
     }
 
     @PluginMethod
@@ -65,7 +99,7 @@ public class AppBridgePlugin extends Plugin {
 
     @PluginMethod
     public void openHomeLauncher(PluginCall call) {
-        Intent intent = new Intent(android.provider.Settings.ACTION_HOME_SETTINGS);
+        Intent intent = new Intent(Settings.ACTION_HOME_SETTINGS);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         call.resolve();
