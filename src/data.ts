@@ -200,6 +200,7 @@ export async function saveAppLimit(appId: string, limitMinutes: number | null): 
 export async function saveApp(app: AppItem): Promise<void> {
   await supabase.from('apps').upsert({
     id: app.id,
+    patient_id: PATIENT_ID,
     name: app.name,
     icon: app.icon,
     bg: app.bg,
@@ -208,8 +209,25 @@ export async function saveApp(app: AppItem): Promise<void> {
     locked: app.locked,
     limit_minutes: app.limit ?? null,
     used_minutes: app.used,
-    pkg: app.pkg ?? null,
+    package_name: app.pkg ?? null,
   });
+}
+
+export async function saveRoutineItem(item: RoutineItem): Promise<void> {
+  await supabase.from('routine_items').upsert({
+    id: item.id,
+    patient_id: PATIENT_ID,
+    emoji: item.emoji,
+    title: item.title,
+    note: item.note ?? '',
+    time: item.time,
+    duration_minutes: item.dur,
+    state: item.state,
+  });
+}
+
+export async function deleteRoutineItem(id: string): Promise<void> {
+  await supabase.from('routine_items').delete().eq('id', id);
 }
 
 export async function deleteApp(id: string): Promise<void> {

@@ -334,7 +334,7 @@ function AddAppSheet({ onSave, onClose }: { onSave: (app: AppItem) => void; onCl
   const save = () => {
     if (!canSave) return;
     onSave({
-      id: `app-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: name.trim(),
       icon: icon.trim() || '📱',
       pkg: pkg.trim(),

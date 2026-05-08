@@ -651,6 +651,7 @@ export function ArthurApp() {
           id: r.id, name: r.name, icon: r.icon, bg: r.bg,
           allowed: Boolean(r.allowed), locked: Boolean(r.locked),
           limit: r.limit_minutes ?? null, used: Number(r.used_minutes ?? 0), color: r.color,
+          pkg: r.pkg ?? r.package_name ?? undefined,
         }));
         setStore(s => ({ ...s, apps }));
       })

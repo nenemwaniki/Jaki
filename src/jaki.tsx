@@ -49,27 +49,34 @@ function JakiApp() {
   );
 }
 
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => void }) {
   const T = useT();
   const toast = useToast();
   const [store, setStore] = useState<Store>(loadLocalStore);
   const [screen, setScreen] = useState<ScreenId>('home');
   const [sos, setSos] = useState<SosState | null>(null);
+  const [outsideZone, setOutsideZone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep a ref so the Realtime handler always sees the latest store without re-subscribing
   const storeRef = useRef(store);
   const feedIdsRef = useRef(new Set(store.feed.map((f) => f.id)));
   const alertIdsRef = useRef(new Set(store.alerts.map((a) => a.id)));
   useEffect(() => { storeRef.current = store; }, [store]);
 
-  // Persist store to localStorage so Arthur tab stays in sync
   useEffect(() => {
     localStorage.setItem(STORE_KEY, JSON.stringify(store));
   }, [store]);
 
-  // Load real data from Supabase on mount
   useEffect(() => {
     let alive = true;
     loadStore()
@@ -79,7 +86,7 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
     return () => { alive = false; };
   }, []);
 
-  // Cross-tab sync: pick up store + SOS changes written by Arthur tab
+  // Cross-tab sync (same-browser fallback)
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === STORE_KEY && e.newValue) {
@@ -89,12 +96,8 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
           const nextAlertIds = new Set(next.alerts.map((a) => a.id));
           const newFeed = next.feed.find((f) => !feedIdsRef.current.has(f.id) && !f.read);
           const newAlert = next.alerts.find((a) => !alertIdsRef.current.has(a.id));
-          if (newFeed) {
-            toast.show(newFeed.card ? `Arthur: ${newFeed.card}` : (newFeed.text ?? 'New notification'));
-          }
-          if (newAlert) {
-            toast.show(newAlert.detail);
-          }
+          if (newFeed) toast.show(newFeed.card ? `Arthur: ${newFeed.card}` : (newFeed.text ?? 'New notification'));
+          if (newAlert) toast.show(newAlert.detail);
           feedIdsRef.current = nextFeedIds;
           alertIdsRef.current = nextAlertIds;
           setStore(next);
@@ -104,7 +107,6 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
         try {
           const nextSos = JSON.parse(e.newValue);
           setSos(nextSos);
-          toast.show(`SOS from ${nextSos.zone}`);
           localStorage.removeItem(SOS_KEY);
           haptic([100, 50, 100, 50, 200]);
         } catch {}
@@ -114,30 +116,23 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  // Supabase Realtime — SOS alerts + live feed from Arthur's AAC messages
+  // Supabase Realtime — SOS, feed, location pings
   useEffect(() => {
     const channel = supabase
       .channel('jaki-live')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
-        const zone = storeRef.current.zones.find((z) => z.inside)?.name ?? 'Home';
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const row = payload.new as any;
+        const zone = row.detail?.replace('SOS triggered from ', '') ?? storeRef.current.zones.find((z) => z.inside)?.name ?? 'Home';
         setSos({ at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), zone });
         haptic([100, 50, 100, 50, 200]);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_items' }, (payload) => {
         const row = payload.new as any;
         const item = {
-          id: row.id,
-          type: row.type,
-          card: row.card ?? undefined,
-          text: row.text ?? undefined,
-          emoji: row.emoji,
-          to: row.to_name ?? undefined,
-          at: row.created_at
-            ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          minutes: 0,
-          read: false,
-          meta: row.meta ?? undefined,
+          id: row.id, type: row.type, card: row.card ?? undefined, text: row.text ?? undefined,
+          emoji: row.emoji, to: row.to_name ?? undefined,
+          at: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          minutes: 0, read: false, meta: row.meta ?? undefined,
         };
         setStore(s => {
           if (s.feed.some(f => f.id === item.id)) return s;
@@ -146,10 +141,17 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
         });
         haptic([8, 30, 8]);
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'location_pings' }, (payload) => {
+        const { lat, lng } = payload.new as any;
+        const activeZones = storeRef.current.zones.filter(z => z.active && z.lat != null && z.lng != null);
+        if (activeZones.length === 0) return;
+        const inside = activeZones.some(z => haversineMeters(lat, lng, z.lat!, z.lng!) <= z.radius);
+        setOutsideZone(!inside);
+        if (!inside) haptic([30, 60, 30]);
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
-
 
   const screenProps = { store, setStore, setScreen };
 
@@ -184,8 +186,73 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
     );
   }
 
+  // Full-screen SOS — replaces entire UI
+  if (sos) {
+    return (
+      <div style={{
+        width: '100%', height: '100vh',
+        background: '#C0392B',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
+        position: 'relative',
+      }}>
+        <style>{`
+          @keyframes sos-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+        `}</style>
+        <div style={{ fontSize: 88, lineHeight: 1, animation: 'sos-pulse 1s ease-in-out infinite' }}>🆘</div>
+        <div style={{ fontFamily: TYPE.display, fontSize: 36, color: '#fff', fontWeight: 700, letterSpacing: -0.5 }}>
+          SOS Alert
+        </div>
+        <div style={{ fontFamily: TYPE.sans, fontSize: 16, color: 'rgba(255,255,255,0.88)', textAlign: 'center', lineHeight: 1.6 }}>
+          {sos.at} · {sos.zone}
+        </div>
+        <div style={{ fontFamily: TYPE.sans, fontSize: 13, color: 'rgba(255,255,255,0.65)', textAlign: 'center', maxWidth: 260, lineHeight: 1.5 }}>
+          Arthur needs your attention. Respond immediately.
+        </div>
+        <button
+          onClick={() => setSos(null)}
+          style={{
+            marginTop: 16, padding: '15px 44px',
+            background: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.5)',
+            borderRadius: 32, fontFamily: TYPE.sans, fontSize: 16, fontWeight: 700,
+            color: '#fff', cursor: 'pointer', letterSpacing: 0.2,
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', background: T.bg, overflow: 'hidden', position: 'relative' }}>
+      {/* Outside-zone blinking banner */}
+      {outsideZone && (
+        <>
+          <style>{`
+            @keyframes zone-blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+          `}</style>
+          <div
+            onClick={() => { setScreen('location'); setOutsideZone(false); }}
+            style={{
+              background: '#E67E22', padding: '10px 16px',
+              display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0,
+              animation: 'zone-blink 1.2s ease-in-out infinite',
+            }}
+          >
+            <span style={{ fontSize: 18 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: TYPE.sans, fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: -0.1 }}>
+                Arthur left the safe zone
+              </div>
+              <div style={{ fontFamily: TYPE.sans, fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>
+                Tap to view location
+              </div>
+            </div>
+            <span style={{ fontFamily: TYPE.sans, fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>✕</span>
+          </div>
+        </>
+      )}
+
       {/* Scrollable screen content */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative' }}>
         {renderScreen()}
@@ -226,33 +293,6 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
       </div>
 
       <PhoneHomeIndicator dark={dark} />
-
-      {/* SOS overlay */}
-      {sos && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 200,
-          background: 'rgba(184,107,94,0.96)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14,
-        }}>
-          <div style={{ fontSize: 64, lineHeight: 1 }}>🆘</div>
-          <div style={{ fontFamily: TYPE.display, fontSize: 30, color: '#fff', fontWeight: 600, letterSpacing: -0.5 }}>
-            SOS Alert
-          </div>
-          <div style={{ fontFamily: TYPE.sans, fontSize: 15, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 1.5 }}>
-            {sos.at} · {sos.zone}
-          </div>
-          <button
-            onClick={() => setSos(null)}
-            style={{
-              marginTop: 12, padding: '13px 36px', background: '#fff',
-              color: '#B86B5E', border: 'none', borderRadius: 28,
-              fontFamily: TYPE.sans, fontSize: 15, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
     </div>
   );
 }

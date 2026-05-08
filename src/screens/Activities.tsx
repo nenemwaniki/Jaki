@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, Sheet, Header, useToast } from '../ui.js';
 import type { ScreenProps, RoutineItem } from '../types.js';
-import { saveRoutineState } from '../data.js';
+import { saveRoutineState, saveRoutineItem, deleteRoutineItem } from '../data.js';
 
 export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
   const T = useT();
@@ -12,13 +12,14 @@ export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
 
   const save = (patch: Partial<RoutineItem>) => {
     if (editing?.id) {
-      setStore(s => ({ ...s, routine: s.routine.map(r => r.id === editing.id ? { ...r, ...patch } : r) }));
+      const updated = { ...routine.find(r => r.id === editing.id)!, ...patch };
+      setStore(s => ({ ...s, routine: s.routine.map(r => r.id === editing.id ? updated : r) }));
+      saveRoutineItem(updated).catch(() => {});
       toast.show('Task updated');
     } else {
-      setStore(s => ({
-        ...s,
-        routine: [...s.routine, { id: 'r' + Date.now(), state: 'next', dur: 30, ...patch } as RoutineItem],
-      }));
+      const newItem: RoutineItem = { id: crypto.randomUUID(), state: 'next', dur: 30, emoji: '📌', title: '', note: '', time: '09:00', ...patch };
+      setStore(s => ({ ...s, routine: [...s.routine, newItem] }));
+      saveRoutineItem(newItem).catch(() => {});
       toast.show("Task added to Arthur's routine");
     }
     setEditing(null);
@@ -27,8 +28,15 @@ export function ActivitiesScreen({ store, setStore, setScreen }: ScreenProps) {
   const remove = (id: string) => {
     const r = routine.find(x => x.id === id)!;
     setStore(s => ({ ...s, routine: s.routine.filter(x => x.id !== id) }));
+    deleteRoutineItem(id).catch(() => {});
     toast.show(`Removed "${r.title}"`, {
-      action: { label: 'UNDO', onClick: () => setStore(s => ({ ...s, routine: [...s.routine, r] })) },
+      action: {
+        label: 'UNDO',
+        onClick: () => {
+          setStore(s => ({ ...s, routine: [...s.routine, r] }));
+          saveRoutineItem(r).catch(() => {});
+        },
+      },
     });
     setEditing(null);
   };
