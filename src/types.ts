@@ -18,6 +18,7 @@ export interface AppItem {
   limit: number | null;
   used: number;
   color: string;
+  pkg?: string; // Android package name — overrides the built-in ID→package map
 }
 
 export interface LibraryApp {
@@ -59,6 +60,7 @@ export interface MsgCard {
   id: string;
   text: string;
   emoji: string;
+  imageUrl?: string;
 }
 
 export interface MessagesLibrary {

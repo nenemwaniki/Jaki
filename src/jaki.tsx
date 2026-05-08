@@ -1,7 +1,6 @@
-import { StrictMode, useState, useEffect, useRef } from 'react';
-import { createRoot } from 'react-dom/client';
+import { useState, useEffect, useRef } from 'react';
 import { DarkCtx, useT, TYPE } from './tokens.js';
-import { Icon, I, PhoneStatusBar, PhoneHomeIndicator, useToast, haptic, ToastProvider } from './ui.js';
+import { Icon, I, PhoneStatusBar, PhoneHomeIndicator, useToast, haptic } from './ui.js';
 import { FALLBACK_SEED, loadStore } from './data.js';
 import { supabase } from './lib/supabase.js';
 import { HomeScreen } from './screens/Home.js';
@@ -107,14 +106,36 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  // Supabase Realtime — fire SOS overlay on any INSERT into notifications
+  // Supabase Realtime — SOS alerts + live feed from Arthur's AAC messages
   useEffect(() => {
     const channel = supabase
-      .channel('jaki-notifications')
+      .channel('jaki-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
         const zone = storeRef.current.zones.find((z) => z.inside)?.name ?? 'Home';
         setSos({ at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), zone });
         haptic([100, 50, 100, 50, 200]);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_items' }, (payload) => {
+        const row = payload.new as any;
+        const item = {
+          id: row.id,
+          type: row.type,
+          card: row.card ?? undefined,
+          text: row.text ?? undefined,
+          emoji: row.emoji,
+          to: row.to_name ?? undefined,
+          at: row.created_at
+            ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          minutes: 0,
+          read: false,
+          meta: row.meta ?? undefined,
+        };
+        setStore(s => {
+          if (s.feed.some(f => f.id === item.id)) return s;
+          return { ...s, feed: [item, ...s.feed] };
+        });
+        haptic([8, 30, 8]);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -229,10 +250,4 @@ function JakiPhone({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => 
   );
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ToastProvider>
-      <JakiApp />
-    </ToastProvider>
-  </StrictMode>,
-);
+export { JakiApp };

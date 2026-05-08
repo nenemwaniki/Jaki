@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Chip, Card, SectionLabel, Sheet, Empty, useToast, haptic } from '../ui.js';
+import { saveAppLock } from '../data.js';
 import type { ScreenProps } from '../types.js';
 
 export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
@@ -47,7 +48,9 @@ export function LauncherScreen({ store, setStore, setScreen }: ScreenProps) {
 
   const toggleLock = (id: string) => {
     const app = apps.find(a => a.id === id)!;
-    update(id, { locked: !app.locked });
+    const next = !app.locked;
+    update(id, { locked: next });
+    saveAppLock(id, next).catch(() => {});
     toast.show(app.locked ? `${app.name} unlocked` : `${app.name} locked`);
     haptic([6]);
   };

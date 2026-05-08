@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Arthur</string>
-    <string name="title_activity_main">Arthur</string>
+    <string name="app_name">Jaki</string>
+    <string name="title_activity_main">Jaki</string>
     <string name="package_name">arthur.demo.com</string>
     <string name="custom_url_scheme">arthur.demo.com</string>
 </resources>

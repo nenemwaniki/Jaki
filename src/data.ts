@@ -50,6 +50,7 @@ async function fetchApps(): Promise<AppItem[]> {
       limit: row.limit_minutes ?? null,
       used: Number(row.used_minutes ?? 0),
       color: row.color,
+      pkg: row.pkg ?? row.package_name ?? undefined,
     })),
   );
 }
@@ -83,21 +84,26 @@ async function fetchRoutine(): Promise<RoutineItem[]> {
 }
 
 async function fetchFeed(): Promise<FeedItem[]> {
-  const rows = await fetchTable<any>('feed_items');
-  return [...rows]
-    .map((row) => ({
-      id: row.id,
-      type: row.type,
-      card: row.card ?? undefined,
-      text: row.text ?? undefined,
-      emoji: row.emoji,
-      to: row.to_name ?? row.to ?? undefined,
-      at: row.at ?? '',
-      minutes: Number(row.minutes ?? 0),
-      read: Boolean(row.read),
-      meta: row.meta ?? undefined,
-    }))
-    .sort((a, b) => a.minutes - b.minutes);
+  const { data, error } = await supabase
+    .from('feed_items')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    type: row.type,
+    card: row.card ?? undefined,
+    text: row.text ?? undefined,
+    emoji: row.emoji,
+    to: row.to_name ?? undefined,
+    at: row.created_at
+      ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '',
+    minutes: 0,
+    read: Boolean(row.read),
+    meta: row.meta ?? undefined,
+  }));
 }
 
 async function fetchZones(): Promise<Zone[]> {
@@ -127,8 +133,15 @@ async function fetchAlerts(): Promise<AlertItem[]> {
     .sort((a, b) => a.at.localeCompare(b.at));
 }
 
+const PATIENT_ID = 'b62dcc24-a980-4cc3-9396-5d4cfe16b6a9';
+
 async function fetchMessages(): Promise<MessagesLibrary> {
-  const rows = await fetchTable<any>('aac_cards');
+  const { data, error } = await supabase
+    .from('aac_cards')
+    .select('*')
+    .eq('patient_id', PATIENT_ID);
+  if (error) throw error;
+  const rows = data ?? [];
   const grouped: MessagesLibrary = {
     urgent: [],
     daily: [],
@@ -140,6 +153,7 @@ async function fetchMessages(): Promise<MessagesLibrary> {
       id: row.id,
       text: row.text,
       emoji: row.emoji,
+      imageUrl: row.image_url ?? undefined,
     };
 
     const category = row.category as keyof MessagesLibrary | undefined;
@@ -165,68 +179,72 @@ export async function loadStore(): Promise<Store> {
         fetchAlerts(),
       ]);
 
-    const isEmpty =
-      contacts.length === 0 &&
-      apps.length === 0 &&
-      routine.length === 0 &&
-      feed.length === 0;
-
-    if (isEmpty) return FALLBACK_SEED;
-
     return { contacts, apps, library, routine, feed, messages, zones, alerts };
   } catch {
-    return FALLBACK_SEED;
+    return EMPTY_STORE;
   }
 }
 
+// ── Write-back helpers ────────────────────────────────────────────────────────
+
+export async function saveAppLock(appId: string, locked: boolean): Promise<void> {
+  await supabase.from('apps').update({ locked }).eq('id', appId);
+}
+
+export async function saveAppLimit(appId: string, limitMinutes: number | null): Promise<void> {
+  await supabase.from('apps').update({ limit_minutes: limitMinutes }).eq('id', appId);
+}
+
+export async function saveRoutineState(id: string, state: string): Promise<void> {
+  await supabase.from('routine_items').update({ state }).eq('id', id);
+}
+
+export async function saveFeedItem(item: FeedItem): Promise<void> {
+  const { error } = await supabase.from('feed_items').insert({
+    id: item.id,
+    patient_id: PATIENT_ID,
+    type: item.type,
+    card: item.card ?? null,
+    text: item.text ?? null,
+    emoji: item.emoji,
+    to_name: item.to ?? null,
+    read: item.read,
+    meta: item.meta ?? null,
+  });
+  if (error) throw error;
+}
+
+// ── Empty store (Supabase reachable but no data yet) ─────────────────────────
+export const EMPTY_STORE: Store = {
+  contacts: [], apps: [], library: [], routine: [],
+  feed: [], messages: { urgent: [], daily: [], social: [] },
+  zones: [], alerts: [],
+};
+
+// ── Minimal fallback (used only when Supabase is unreachable) ─────────────────
 /**
- * Optional fallback demo store.
- * Use this only if Supabase is unreachable.
+ * Keep this minimal — real data lives in Supabase.
+ * Populate via the Supabase dashboard before the demo.
  */
 export const FALLBACK_SEED: Store = {
   contacts: [
-    { id: 'c1', name: 'Jaki', role: 'Primary Caregiver', color: '#C89B4A', initials: 'J', star: true, phone: '+254 712 004 001' },
-    { id: 'c2', name: 'Dr. Susan', role: 'Doctor · AKU', color: '#6F8FA8', initials: 'S', star: false, phone: '+254 712 004 002' },
-    { id: 'c3', name: 'Amina', role: 'Occupational Therapist', color: '#8A6E8C', initials: 'A', star: false, phone: '+254 712 004 003' },
-    { id: 'c4', name: 'Kevin', role: 'Friend', color: '#87A878', initials: 'K', star: false, phone: '+254 712 004 004' },
-    { id: 'c5', name: 'Mum', role: 'Family', color: '#B86B5E', initials: 'M', star: true, phone: '+254 712 004 005' },
+    { id: 'c1', name: 'Jaki', role: 'Primary Caregiver', color: '#C89B4A', initials: 'J', star: true, phone: '+254700000001' },
+    { id: 'c2', name: 'Mum', role: 'Family', color: '#B86B5E', initials: 'M', star: true, phone: '+254700000002' },
+    { id: 'c3', name: 'Dad', role: 'Family', color: '#6F8FA8', initials: 'D', star: false, phone: '+254700000003' },
   ],
   apps: [
-    { id: 'a1', name: 'YouTube', icon: '▶', bg: '#F3E1DC', allowed: true, locked: false, limit: 90, used: 47, color: '#B86B5E' },
-    { id: 'a2', name: 'Call', icon: '☏', bg: '#EAF0E4', allowed: true, locked: false, limit: null, used: 12, color: '#5E7C52' },
-    { id: 'a3', name: 'Messages', icon: '✉', bg: '#F5EBD6', allowed: true, locked: false, limit: null, used: 8, color: '#C89B4A' },
-    { id: 'a4', name: 'Music', icon: '♪', bg: '#EDE4EE', allowed: true, locked: false, limit: null, used: 22, color: '#8A6E8C' },
-    { id: 'a5', name: 'Camera', icon: '◎', bg: '#E2EAF0', allowed: true, locked: false, limit: null, used: 5, color: '#6F8FA8' },
-    { id: 'a6', name: 'Games', icon: '◆', bg: '#F3E1DC', allowed: true, locked: true, limit: 45, used: 45, color: '#B86B5E' },
-    { id: 'a7', name: 'Draw', icon: '✦', bg: '#EAF0E4', allowed: true, locked: false, limit: null, used: 15, color: '#5E7C52' },
-    { id: 'a8', name: 'Stories', icon: '❦', bg: '#F5EBD6', allowed: true, locked: false, limit: null, used: 18, color: '#C89B4A' },
-    { id: 'a9', name: 'Puzzles', icon: '◐', bg: '#EDE4EE', allowed: true, locked: false, limit: null, used: 11, color: '#8A6E8C' },
+    { id: 'youtube',   name: 'YouTube',    icon: '▶', bg: '#FFEAEA', allowed: true, locked: false, limit: 60,   used: 0, color: '#FF0000', pkg: 'com.google.android.youtube' },
+    { id: 'camera',    name: 'Camera',     icon: '📷', bg: '#E8E8E8', allowed: true, locked: false, limit: null, used: 0, color: '#444',    pkg: '__camera__' },
+    { id: 'spotify',   name: 'Spotify',    icon: '♪', bg: '#E8F5E9', allowed: true, locked: false, limit: null, used: 0, color: '#1DB954', pkg: 'com.spotify.music' },
+    { id: 'playstore', name: 'Play Store', icon: '▶', bg: '#E3F2FD', allowed: true, locked: false, limit: null, used: 0, color: '#4285F4', pkg: 'com.android.vending' },
   ],
-  library: [
-    { id: 'l1', name: 'TikTok', icon: '♪', color: '#B86B5E', reason: 'Not approved — infinite scroll' },
-    { id: 'l2', name: 'Instagram', icon: '◎', color: '#8A6E8C', reason: 'Not approved — infinite scroll' },
-    { id: 'l3', name: 'Settings', icon: '⚙', color: '#78716C', reason: 'Caregiver only' },
-    { id: 'l4', name: 'Calendar', icon: '▦', color: '#6F8FA8', reason: 'Available — tap to add' },
-    { id: 'l5', name: 'Weather', icon: '☀', color: '#C89B4A', reason: 'Available — tap to add' },
-  ],
+  library: [],
   routine: [
-    { id: 'r1', emoji: '🌅', title: 'Morning Routine', note: 'Shower, brush teeth, get dressed', time: '7:30', dur: 30, state: 'done' },
-    { id: 'r2', emoji: '🥣', title: 'Breakfast', note: 'Eat in the kitchen', time: '8:15', dur: 30, state: 'done' },
-    { id: 'r3', emoji: '🎨', title: 'Creative Time', note: 'Drawing or painting activity', time: '10:00', dur: 45, state: 'current' },
-    { id: 'r4', emoji: '🚶', title: 'Walk Outside', note: '15 min walk around the compound', time: '11:00', dur: 15, state: 'next' },
-    { id: 'r5', emoji: '🍽', title: 'Lunch', note: 'Eat in the kitchen with Jaki', time: '12:30', dur: 45, state: 'next' },
-    { id: 'r6', emoji: '📺', title: 'YouTube Time', note: 'Watch favourite channels', time: '13:30', dur: 60, state: 'next' },
-    { id: 'r7', emoji: '🧩', title: 'Learning', note: 'Puzzles or number games', time: '15:00', dur: 45, state: 'next' },
-    { id: 'r8', emoji: '🌙', title: 'Evening Routine', note: 'Wind down, prepare for bed', time: '19:00', dur: 60, state: 'next' },
+    { id: 'r1', emoji: '🌅', title: 'Morning Routine', note: 'Shower, dress, brush teeth', time: '7:30', dur: 30, state: 'next' },
+    { id: 'r2', emoji: '🍽', title: 'Lunch', note: 'Eat in the kitchen', time: '12:30', dur: 30, state: 'next' },
+    { id: 'r3', emoji: '🌙', title: 'Evening Wind-down', note: 'Prepare for bed', time: '19:00', dur: 45, state: 'next' },
   ],
-  feed: [
-    { id: 'f1', type: 'aac', card: "I'm okay", emoji: '😊', to: 'Jaki', at: '10 min ago', minutes: 10, read: false },
-    { id: 'f2', type: 'routine', text: 'Finished breakfast', emoji: '🥣', at: '1h 15m ago', minutes: 75, read: true },
-    { id: 'f3', type: 'aac', card: "I'm hungry", emoji: '🍽', to: 'Jaki', at: '2h ago', minutes: 120, read: true },
-    { id: 'f4', type: 'location', text: 'Arrived home', emoji: '🏠', at: '2h 30m ago', minutes: 150, read: true },
-    { id: 'f5', type: 'app', text: 'Opened YouTube', emoji: '▶', at: '3h ago', minutes: 180, read: true, meta: '12 min session' },
-    { id: 'f6', type: 'aac', card: 'Thank you', emoji: '🙏', to: 'Jaki', at: '4h ago', minutes: 240, read: true },
-  ],
+  feed: [],
   messages: {
     urgent: [
       { id: 'm1', text: "I don't feel well", emoji: '🤒' },
@@ -248,12 +266,6 @@ export const FALLBACK_SEED: Store = {
   },
   zones: [
     { id: 'z1', name: 'Home', radius: 120, color: '#87A878', active: true, inside: true },
-    { id: 'z2', name: 'Pool Centre', radius: 80, color: '#6F8FA8', active: true, inside: false },
-    { id: 'z3', name: 'Therapist clinic', radius: 60, color: '#8A6E8C', active: false, inside: false },
   ],
-  alerts: [
-    { id: 'al1', kind: 'sos', at: 'Yesterday · 18:42', resolved: true, detail: 'Shake gesture triggered at Home' },
-    { id: 'al2', kind: 'limit', at: '2 days ago · 14:15', resolved: true, detail: 'YouTube exceeded 90 min — locked automatically' },
-    { id: 'al3', kind: 'zone', at: '3 days ago · 11:30', resolved: true, detail: 'Arthur left Home zone briefly' },
-  ],
+  alerts: [],
 };

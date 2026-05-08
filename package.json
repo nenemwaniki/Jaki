@@ -8,11 +8,15 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 5174",
     "typecheck": "tsc -b --noEmit",
-    "apk:jaki": "node scripts/build-apk.mjs jaki",
-    "apk:arthur": "node scripts/build-apk.mjs arthur"
+    "apk": "node scripts/build-apk.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@supabase/supabase-js": "^2.105.1",
+    "@types/leaflet": "^1.9.21",
+    "leaflet": "^1.9.4",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -21,6 +25,6 @@
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "5.6.3",
-    "vite": "^8.0.10"
+    "vite": "^6.3.5"
   }
 }

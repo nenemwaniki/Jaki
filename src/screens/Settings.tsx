@@ -85,8 +85,30 @@ export function SettingsScreen({ store, setScreen, dark, setDark }: ScreenProps 
           </SRow>
         </Card>
         <div style={{ fontFamily: TYPE.sans, fontSize: 10.5, color: T.ink4, textAlign: 'center', marginTop: 16, letterSpacing: 0.1 }}>
-          ArthurOS Companion · v1.0 · Hackcessible 2026
+          Jaki · v1.0 · Hackcessible 2026
         </div>
+      </div>
+
+      {/* Sign out */}
+      <div style={{ padding: '0 20px 48px' }}>
+        <button
+          onClick={() => {
+            localStorage.removeItem('jaki_role');
+            window.location.reload();
+          }}
+          style={{
+            width: '100%', padding: '16px',
+            background: T.roseSoft,
+            border: `1.5px solid ${T.rose}55`,
+            borderRadius: 16,
+            cursor: 'pointer',
+            fontFamily: TYPE.sans, fontSize: 15,
+            fontWeight: 700, color: T.rose,
+            letterSpacing: 0.2,
+          }}
+        >
+          Sign out
+        </button>
       </div>
     </div>
   );

@@ -1,80 +1,165 @@
+import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useT, TYPE } from '../tokens.js';
 import { Icon, I, Btn, Card, SectionLabel, Toggle, Header, useToast } from '../ui.js';
+import { supabase } from '../lib/supabase.js';
 import type { ScreenProps } from '../types.js';
+
+// Fix Leaflet's broken default icon paths when bundled with Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+interface LocationPing {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  at?: string;
+}
 
 export function LocationScreen({ store, setStore, setScreen }: ScreenProps) {
   const T = useT();
   const toast = useToast();
   const { zones } = store;
-  const active = zones.find(z => z.inside && z.active);
+  const mapRef   = useRef<HTMLDivElement>(null);
+  const leaflet  = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+  const circleRef = useRef<L.Circle | null>(null);
+  const [ping, setPing] = useState<LocationPing | null>(null);
+  const [age, setAge]   = useState<string>('—');
+
+  // Nairobi default if no ping yet
+  const DEFAULT_LAT = -1.286389;
+  const DEFAULT_LNG = 36.817223;
+
+  // Build the map once
+  useEffect(() => {
+    if (!mapRef.current || leaflet.current) return;
+    const map = L.map(mapRef.current, {
+      center: [DEFAULT_LAT, DEFAULT_LNG],
+      zoom: 15,
+      zoomControl: false,
+      attributionControl: false,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Custom Arthur marker icon
+    const icon = L.divIcon({
+      html: `<div style="
+        width:40px;height:40px;border-radius:50%;
+        background:#87A878;border:3px solid #fff;
+        display:flex;align-items:center;justify-content:center;
+        font-family:Georgia,serif;font-size:16px;font-weight:700;color:#fff;
+        box-shadow:0 2px 8px rgba(0,0,0,0.3)">A</div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      className: '',
+    });
+
+    const marker = L.marker([DEFAULT_LAT, DEFAULT_LNG], { icon }).addTo(map);
+    markerRef.current = marker;
+    leaflet.current = map;
+
+    return () => { map.remove(); leaflet.current = null; };
+  }, []);
+
+  // Load latest ping from Supabase
+  const fetchLatestPing = async () => {
+    const { data } = await supabase
+      .from('location_pings')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (data) updateMarker({ lat: data.lat, lng: data.lng, accuracy: data.accuracy, at: data.created_at });
+  };
+
+  const updateMarker = (p: LocationPing) => {
+    setPing(p);
+    const latlng: L.LatLngExpression = [p.lat, p.lng];
+    markerRef.current?.setLatLng(latlng);
+    circleRef.current?.remove();
+    if (p.accuracy) {
+      circleRef.current = L.circle(latlng, {
+        radius: p.accuracy,
+        color: '#87A878',
+        fillColor: '#87A878',
+        fillOpacity: 0.12,
+        weight: 1.5,
+      }).addTo(leaflet.current!);
+    }
+    leaflet.current?.flyTo(latlng, 16, { duration: 1.2 });
+    if (p.at) {
+      const diff = Math.round((Date.now() - new Date(p.at).getTime()) / 60000);
+      setAge(diff < 1 ? 'Just now' : `${diff} min ago`);
+    }
+  };
+
+  useEffect(() => { fetchLatestPing(); }, []);
+
+  // Realtime subscription
+  useEffect(() => {
+    const ch = supabase.channel('location-live')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'location_pings',
+      }, payload => {
+        const r = payload.new as any;
+        updateMarker({ lat: r.lat, lng: r.lng, accuracy: r.accuracy, at: r.created_at });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const toggle = (id: string) =>
     setStore(s => ({ ...s, zones: s.zones.map(z => z.id === id ? { ...z, active: !z.active } : z) }));
 
+  const active = zones.find(z => z.inside && z.active);
+
   return (
     <div style={{ background: T.bg, minHeight: '100%' }}>
-      <Header title="Location" sub="Where Arthur is now" onBack={() => setScreen('home')} />
+      <Header title="Location" sub="Arthur's live position" onBack={() => setScreen('home')} />
 
-      {/* Map */}
+      {/* Leaflet Map */}
       <div style={{ padding: '14px 20px 0' }}>
         <div style={{
-          position: 'relative', height: 280, borderRadius: 20, overflow: 'hidden',
-          background: 'linear-gradient(180deg, #F0EDE5 0%, #E7E3DB 100%)',
+          position: 'relative', height: 300, borderRadius: 20, overflow: 'hidden',
           border: `1px solid ${T.line}`,
         }}>
-          {/* grid */}
-          <div style={{
-            position: 'absolute', inset: 0, opacity: 0.5,
-            backgroundImage: `linear-gradient(${T.line2} 1px, transparent 1px), linear-gradient(90deg, ${T.line2} 1px, transparent 1px)`,
-            backgroundSize: '28px 28px',
-          }} />
-          {/* roads */}
-          <div style={{ position: 'absolute', top: '38%', left: 0, right: 0, height: 10, background: '#DFD9CC' }} />
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: '35%', width: 10, background: '#DFD9CC' }} />
-          {/* buildings */}
-          <div style={{ position: 'absolute', top: '15%', left: '45%', width: 50, height: 38, background: '#D6D0C1', borderRadius: 4 }} />
-          <div style={{ position: 'absolute', top: '55%', left: '55%', width: 60, height: 32, background: '#D6D0C1', borderRadius: 4 }} />
-          <div style={{ position: 'absolute', top: '60%', left: '18%', width: 40, height: 40, background: '#D6D0C1', borderRadius: 4 }} />
+          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
 
-          {/* geofence ring */}
+          {/* Overlay info card */}
           <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 160, height: 160, borderRadius: 80,
-            background: `${T.sage}22`, border: `2px dashed ${T.sage}`,
-            animation: 'spin 40s linear infinite',
-          }} />
-          {/* Arthur's pin */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 54, height: 54, borderRadius: 27, background: T.surface,
-            border: `3px solid ${T.sageDeep}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 0 0 8px ${T.sage}22, ${T.shadow2}`, zIndex: 5,
-          }}>
-            <span style={{ fontFamily: TYPE.display, fontSize: 22, fontWeight: 600, color: T.sageDeep }}>A</span>
-            <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, background: T.sageDeep, border: '2px solid #fff' }} />
-          </div>
-
-          {/* info card */}
-          <div style={{
-            position: 'absolute', left: 12, right: 12, bottom: 12,
+            position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 1000,
             background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
             borderRadius: 14, padding: '12px 14px',
             display: 'flex', alignItems: 'center', gap: 12,
             border: `1px solid ${T.line}`,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: TYPE.sans, fontSize: 10, color: T.sageDeep, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase' }}>Inside safe zone</div>
-              <div style={{ fontFamily: TYPE.display, fontSize: 17, color: T.ink, fontWeight: 500, letterSpacing: -0.3, marginTop: 1 }}>{active?.name ?? 'Home'}</div>
-              <div style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, marginTop: 1 }}>Ping accuracy · 8m · updated 2 min ago</div>
+              <div style={{ fontFamily: TYPE.sans, fontSize: 10, color: T.sageDeep, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+                {active ? 'Inside safe zone' : ping ? 'Outside safe zone' : 'Waiting for ping…'}
+              </div>
+              <div style={{ fontFamily: TYPE.display, fontSize: 17, color: T.ink, fontWeight: 500, letterSpacing: -0.3, marginTop: 1 }}>
+                {active?.name ?? (ping ? 'Unknown area' : '—')}
+              </div>
+              <div style={{ fontFamily: TYPE.sans, fontSize: 11, color: T.ink3, marginTop: 1 }}>
+                {ping?.accuracy ? `±${Math.round(ping.accuracy)}m accuracy · ` : ''}{age}
+              </div>
             </div>
-            <Btn kind="fill" size="sm" icon={I.refresh} onClick={() => toast.show('Location refreshed')}>Refresh</Btn>
+            <Btn kind="fill" size="sm" icon={I.refresh} onClick={() => { fetchLatestPing(); toast.show('Refreshed'); }}>
+              Refresh
+            </Btn>
           </div>
         </div>
       </div>
 
-      <SectionLabel action={<Btn kind="ghost" size="sm" icon={I.plus} onClick={() => toast.show('Draw a new zone on the map')}>New zone</Btn>}>
+      <SectionLabel action={<Btn kind="ghost" size="sm" icon={I.plus} onClick={() => toast.show('Zone editing coming soon')}>New zone</Btn>}>
         Safe zones
       </SectionLabel>
       <div style={{ padding: '0 20px 32px' }}>
